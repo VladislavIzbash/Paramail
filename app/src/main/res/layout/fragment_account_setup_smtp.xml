@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <TextView
+        android:id="@+id/header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_marginTop="@dimen/wizard_top_margin"
+        android:text="@string/smtp_step_header"
+        style="@style/TextAppearance.MaterialComponents.Headline5" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/server_input_layout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@id/header"
+        app:layout_constraintEnd_toStartOf="@id/port_input_layout"
+        app:layout_constraintTop_toBottomOf="@id/header"
+        android:hint="@string/server"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/server_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/port_input_layout"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        app:layout_constraintStart_toEndOf="@id/server_input_layout"
+        app:layout_constraintEnd_toEndOf="@id/header"
+        app:layout_constraintTop_toBottomOf="@id/header"
+        android:hint="@string/port"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/port_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:text="@string/default_smtp_port"/>
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <CheckBox
+        android:id="@+id/use_auth"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@id/header"
+        app:layout_constraintEnd_toEndOf="@id/header"
+        app:layout_constraintTop_toBottomOf="@id/server_input_layout"
+        android:checked="true"
+        android:text="@string/auth" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/login_input_layout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@id/header"
+        app:layout_constraintEnd_toEndOf="@id/header"
+        app:layout_constraintTop_toBottomOf="@id/use_auth"
+        android:hint="@string/email_login"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/login_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textEmailAddress" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/password_input_layout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@id/header"
+        app:layout_constraintEnd_toEndOf="@id/header"
+        app:layout_constraintTop_toBottomOf="@id/login_input_layout"
+        android:hint="@string/password"
+        app:endIconMode="password_toggle"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/password_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textPassword" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <CheckBox
+        android:id="@+id/use_ssl"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@id/header"
+        app:layout_constraintEnd_toEndOf="@id/header"
+        app:layout_constraintTop_toBottomOf="@id/password_input_layout"
+        android:checked="true"
+        android:text="@string/use_ssl" />
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
