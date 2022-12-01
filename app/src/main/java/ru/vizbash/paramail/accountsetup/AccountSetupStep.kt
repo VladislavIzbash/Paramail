@@ -1,9 +1,15 @@
 package ru.vizbash.paramail.accountsetup
 
 import androidx.fragment.app.Fragment
+import kotlinx.coroutines.flow.StateFlow
 
-abstract class AccountSetupStep : Fragment() {
-    abstract fun createNextStep(): AccountSetupStep?
+interface AccountSetupStep {
+    val canContinue: StateFlow<Boolean>
 
-    open suspend fun check(): Boolean = true
+    val isFinal: Boolean
+        get() = false
+
+    fun createNextFragment(): Fragment?
+
+    suspend fun proceed(): String?
 }

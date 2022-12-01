@@ -4,9 +4,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.fragment.app.Fragment
 import ru.vizbash.paramail.databinding.FragmentAccountSetupImapBinding
 
-class AccountSetupImapFragment : AccountSetupStep() {
+class AccountSetupImapFragment : Fragment() {
     private var _ui: FragmentAccountSetupImapBinding? = null
     private val ui get() = _ui!!
 
@@ -27,8 +28,8 @@ class AccountSetupImapFragment : AccountSetupStep() {
         super.onResume()
 
         val wizard = requireParentFragment() as AccountSetupWizardFragment
-        wizard.canContinue = false
-        wizard.isFinalStep = true
+//        wizard.canContinue = false
+//        wizard.isFinalStep = true
     }
 
     override fun onDestroyView() {
@@ -36,5 +37,4 @@ class AccountSetupImapFragment : AccountSetupStep() {
         _ui = null
     }
 
-    override fun createNextStep(): AccountSetupStep? = null
 }

@@ -6,39 +6,26 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.commit
+import androidx.fragment.app.replace
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupWizardBinding
+import java.util.*
 
 class AccountSetupWizardFragment : Fragment() {
     private var _ui: FragmentAccountSetupWizardBinding? = null
     private val ui get() = _ui!!
 
-    private lateinit var stepAdapter: SetupWizardAdapter
-
-    var canContinue
-        get() = ui.nextBtn.isEnabled
-        set(value) { ui.nextBtn.isEnabled = value }
-
-    var isFinalStep = false
-        set(value) {
-            if (value) {
-                ui.nextBtn.setText(R.string.done)
-            } else {
-                ui.nextBtn.setText(R.string.next)
-            }
-            field = value
-        }
+    private val stepStack = Stack<AccountSetupStep>()
+    private var stepJob: Job? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -50,22 +37,15 @@ class AccountSetupWizardFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        stepAdapter = SetupWizardAdapter(this)
-
+        ui.backBtn.isEnabled = false
+        ui.nextBtn.isEnabled = false
         ui.checkProgress.isVisible = false
         ui.connectionError.isVisible = false
 
-        ui.viewPager.adapter = stepAdapter
-        ui.viewPager.isUserInputEnabled = false
-
-        ui.nextBtn.isEnabled = false
         ui.nextBtn.setOnClickListener { onNextClicked() }
+        ui.backBtn.setOnClickListener { onPrevClicked() }
 
-        ui.backBtn.isEnabled = false
-        ui.backBtn.setOnClickListener {
-            ui.viewPager.currentItem--
-            ui.backBtn.isEnabled = ui.viewPager.currentItem != 0
-        }
+        addToStack(AccountSetupStartFragment())
     }
 
     override fun onDestroyView() {
@@ -73,55 +53,75 @@ class AccountSetupWizardFragment : Fragment() {
         _ui = null
     }
 
-    private fun onNextClicked() {
-        lifecycleScope.launch(Dispatchers.Main) {
-            val currentStep = stepAdapter.getStep(ui.viewPager.currentItem)
+    private suspend fun checkStep(): Boolean {
+        ui.nextBtn.isEnabled = false
+        ui.checkProgress.isVisible = true
+        ui.connectionError.isVisible = false
 
-            canContinue = false
-            ui.checkProgress.isVisible = true
-            ui.connectionError.isVisible = false
+        val error = stepStack.peek().proceed()
 
-            val success = currentStep.check()
+        ui.checkProgress.isVisible = false
+        ui.nextBtn.isEnabled = true
 
-            ui.checkProgress.isVisible = false
-            canContinue = true
+        return if (error != null) {
+            ui.connectionError.isVisible = true
+            ui.connectionError.text = error
+            false
+        } else {
+            true
+        }
+    }
 
-            if (success) {
-                stepAdapter.nextStep(ui.viewPager.currentItem)
-                ui.viewPager.currentItem++
-                ui.backBtn.isEnabled = true
-            } else {
-                ui.connectionError.isVisible = true
+    private fun switchStep(step: AccountSetupStep) {
+        if (step.isFinal) {
+            ui.nextBtn.setText(R.string.done)
+        } else {
+            ui.nextBtn.setText(R.string.next)
+        }
+
+        stepJob?.cancel()
+        stepJob = viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                step.canContinue.collect { ui.nextBtn.isEnabled = it }
             }
         }
     }
 
-    class SetupWizardAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
-        private val steps = mutableListOf<AccountSetupStep>()
-        private var insertNew = true
+    private fun addToStack(step: AccountSetupStep) {
+        childFragmentManager.commit {
+            setReorderingAllowed(true)
 
-        override fun getItemCount() = if (insertNew) steps.size + 1 else steps.size
+            if (!stepStack.isEmpty()) {
+                hide(stepStack.peek() as Fragment)
+            }
+            add(R.id.step_container, step as Fragment)
+            addToBackStack(null)
+        }
+        stepStack.push(step)
+        switchStep(step)
+    }
 
-        override fun createFragment(position: Int): Fragment {
-            insertNew = false
+    private fun onNextClicked() {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
+            if (!checkStep()) {
+                return@launch
+            }
 
-            return if (steps.size == 0) {
-                steps.add(AccountSetupStartFragment())
-                steps[0]
+            if (!stepStack.peek().isFinal) {
+                val next = stepStack.peek().createNextFragment()!! as AccountSetupStep
+                addToStack(next)
             } else {
-                val next = steps[position - 1].createNextStep()!!
-                steps.add(next)
-                next
+                // TODO:
             }
-        }
 
-        fun getStep(pos: Int) = steps[pos]
-
-        fun nextStep(currentStep: Int) {
-            if (currentStep == steps.size - 1) {
-                insertNew = true
-                notifyItemInserted(currentStep + 1)
-            }
+            ui.backBtn.isEnabled = true
         }
+    }
+
+    private fun onPrevClicked() {
+        stepStack.pop()
+        childFragmentManager.popBackStack()
+        switchStep(stepStack.peek())
+        ui.backBtn.isEnabled = false
     }
 }

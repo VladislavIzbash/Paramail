@@ -2,18 +2,26 @@ package ru.vizbash.paramail.mail
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ru.vizbash.paramail.R
 import java.util.Properties
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.mail.AuthenticationFailedException
 import javax.mail.MessagingException
 import javax.mail.Session
 
 @Singleton
 class MailService @Inject constructor() {
+    enum class CheckResult(val errorId: Int?) {
+        Ok(null),
+        ConnError(R.string.connection_error),
+        AuthError(R.string.auth_error),
+    }
+
     suspend fun checkSmtp(
         props: Properties,
         smtpData: MailData,
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): CheckResult = withContext(Dispatchers.IO) {
         try {
             val newProps = Properties(props)
             newProps["mail.smtp.host"] = smtpData.host
@@ -29,10 +37,11 @@ class MailService @Inject constructor() {
             }
             transport.close()
 
-            return@withContext true
+            CheckResult.Ok
+        } catch (e: AuthenticationFailedException) {
+            CheckResult.AuthError
         } catch (e: MessagingException) {
-            e.printStackTrace()
-            return@withContext false
+            CheckResult.ConnError
         }
     }
 }

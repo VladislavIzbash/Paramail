@@ -19,4 +19,5 @@
     <string name="imap_step_header">Входящая почта (IMAP)</string>
     <string name="default_imap_port">993</string>
     <string name="connection_error">Ошибка подключения</string>
+    <string name="auth_error">Ошибка аутентификации</string>
 </resources>

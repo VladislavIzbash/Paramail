@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/account_setup_wizard"
+    app:startDestination="@id/accountSetupStartFragment">
+
+    <fragment
+        android:id="@+id/accountSetupStartFragment"
+        android:name="ru.vizbash.paramail.accountsetup.AccountSetupStartFragment"
+        android:label="AccountSetupStartFragment"
+        tools:layout="@layout/fragment_account_setup_start" >
+        <action
+            android:id="@+id/action_accountSetupStartFragment_to_accountSetupSmtpFragment"
+            app:destination="@id/accountSetupSmtpFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/accountSetupSmtpFragment"
+        android:name="ru.vizbash.paramail.accountsetup.AccountSetupSmtpFragment"
+        android:label="fragment_account_setup_smtp"
+        tools:layout="@layout/fragment_account_setup_smtp" >
+        <action
+            android:id="@+id/action_accountSetupSmtpFragment_to_accountSetupImapFragment"
+            app:destination="@id/accountSetupImapFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/accountSetupImapFragment"
+        android:name="ru.vizbash.paramail.accountsetup.AccountSetupImapFragment"
+        android:label="fragment_account_setup_imap"
+        tools:layout="@layout/fragment_account_setup_imap" />
+</navigation>

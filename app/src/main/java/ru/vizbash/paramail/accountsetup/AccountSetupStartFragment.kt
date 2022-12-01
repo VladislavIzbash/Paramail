@@ -10,11 +10,13 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupStartBinding
 import ru.vizbash.paramail.databinding.ItemAccountTypeBinding
 
-class AccountSetupStartFragment : AccountSetupStep() {
+class AccountSetupStartFragment : Fragment(), AccountSetupStep {
     private var _ui: FragmentAccountSetupStartBinding? = null
     private val ui get() = _ui!!
 
@@ -42,8 +44,7 @@ class AccountSetupStartFragment : AccountSetupStep() {
         )
 
         val adapter = AccountListAdapter(supportedTypes) {
-            selected = true
-            (requireParentFragment() as AccountSetupWizardFragment).canContinue = true
+            canContinue.value = true
         }
         ui.accountTypeList.adapter = adapter
         ui.accountTypeList.addItemDecoration(DividerItemDecoration(
@@ -52,20 +53,17 @@ class AccountSetupStartFragment : AccountSetupStep() {
         )
     }
 
-    override fun onResume() {
-        super.onResume()
-
-        val wizard = requireParentFragment() as AccountSetupWizardFragment
-        wizard.canContinue = selected
-        wizard.isFinalStep = false
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _ui = null
     }
 
-    override fun createNextStep() = AccountSetupSmtpFragment()
+
+    override val canContinue = MutableStateFlow(false)
+
+    override fun createNextFragment() = AccountSetupSmtpFragment()
+
+    override suspend fun proceed(): String? = null
 
     class MailService(
         val icon: Drawable,
