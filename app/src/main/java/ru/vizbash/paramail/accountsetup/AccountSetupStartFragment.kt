@@ -8,17 +8,22 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import androidx.navigation.navGraphViewModels
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupStartBinding
 import ru.vizbash.paramail.databinding.ItemAccountTypeBinding
 
-class AccountSetupStartFragment : Fragment(), AccountSetupStep {
+class AccountSetupStartFragment : Fragment() {
     private var _ui: FragmentAccountSetupStartBinding? = null
     private val ui get() = _ui!!
+
+    private val model: AccountSetupModel by navGraphViewModels(R.id.account_setup_wizard)
 
     private var selected = false
 
@@ -44,7 +49,12 @@ class AccountSetupStartFragment : Fragment(), AccountSetupStep {
         )
 
         val adapter = AccountListAdapter(supportedTypes) {
-            canContinue.value = true
+            selected = true
+            model.wizardState.update {
+                it.copy(
+                    phase = WizardPhase.Filling(true),
+                )
+            }
         }
         ui.accountTypeList.adapter = adapter
         ui.accountTypeList.addItemDecoration(DividerItemDecoration(
@@ -58,12 +68,21 @@ class AccountSetupStartFragment : Fragment(), AccountSetupStep {
         _ui = null
     }
 
+    override fun onResume() {
+        super.onResume()
 
-    override val canContinue = MutableStateFlow(false)
+        model.wizardState.value = WizardState(
+            isFirst = true,
+            isFinal = false,
+            phase = WizardPhase.Filling(
+                isValid = selected,
+            ),
+        )
 
-    override fun createNextFragment() = AccountSetupSmtpFragment()
-
-    override suspend fun proceed(): String? = null
+        model.onNext = {
+            findNavController().navigate(R.id.action_accountSetupStartFragment_to_accountSetupSmtpFragment)
+        }
+    }
 
     class MailService(
         val icon: Drawable,

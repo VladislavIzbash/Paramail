@@ -8,15 +8,16 @@
     tools:context=".accountsetup.AccountSetupWizardFragment">
 
     <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/step_container"
+        android:id="@+id/nav_host_fragment"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        tools:layout="@layout/fragment_account_setup_start"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/next_btn"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/next_btn"
+        android:name="androidx.navigation.fragment.NavHostFragment"
+        app:defaultNavHost="true"
+        app:navGraph="@navigation/account_setup_wizard" />
 
     <Button
         android:id="@+id/back_btn"
@@ -37,7 +38,7 @@
         android:text="@string/next" />
 
     <ProgressBar
-        android:id="@+id/check_progress"
+        android:id="@+id/progress"
         android:layout_width="wrap_content"
         android:layout_height="0dp"
         android:layout_margin="5dp"
