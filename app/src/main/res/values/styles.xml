@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Sd" parent="Widget.MaterialComponents.Button">
-        <item name="backgroundTint"></item>
+    <style name="TextAppearance.Paramail.LinkText" parent="TextAppearance.AppCompat">
+        <item name="android:textColor">@color/blue</item>
+        <item name="android:textSize">18sp</item>
     </style>
 </resources>

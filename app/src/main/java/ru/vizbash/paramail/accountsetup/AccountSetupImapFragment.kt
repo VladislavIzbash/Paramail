@@ -40,7 +40,7 @@ class AccountSetupImapFragment : Fragment() {
             isFirst = false,
             isFinal = true,
             phase = WizardPhase.Filling(
-                isValid = false,
+                isValid = true,
             )
         )
 
@@ -58,12 +58,14 @@ class AccountSetupImapFragment : Fragment() {
         }
 
         val props = Properties()
-        props["mail.imap.ssl.enable"] = true
-        props["mail.imap.connectiontimeout"] = 1000
+        props["mail.imap.ssl.enable"] = "true"
+        props["mail.imap.connectiontimeout"] = "1000"
+        props["mail.imap.timeout"] = "1000"
+        props["mail.imap.writetimeout"] = "1000"
 
         val imapData = MailData(
             ui.serverInput.text.toString(),
-            ui.serverInput.text.toString().toInt(),
+            ui.portInput.text.toString().toInt(),
             Creds(
                 ui.loginInput.text.toString(),
                 ui.passwordInput.text.toString(),

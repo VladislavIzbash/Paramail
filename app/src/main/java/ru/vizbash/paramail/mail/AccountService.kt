@@ -51,14 +51,14 @@ class AccountService @Inject constructor(
 
     suspend fun checkImap(
         props: Properties,
-        smtpData: MailData,
+        imapData: MailData,
     ): CheckResult = withContext(Dispatchers.IO) {
-        requireNotNull(smtpData.creds)
+        requireNotNull(imapData.creds)
 
         try {
             val session = Session.getInstance(props, null)
             val store = session.getStore("imap")
-            store.connect(smtpData.host, smtpData.port, smtpData.creds.login, smtpData.creds.secret)
+            store.connect(imapData.host, imapData.port, imapData.creds.login, imapData.creds.secret)
 
             CheckResult.Ok
         } catch (e: AuthenticationFailedException) {

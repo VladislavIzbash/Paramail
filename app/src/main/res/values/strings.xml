@@ -20,4 +20,8 @@
     <string name="default_imap_port">993</string>
     <string name="connection_error">Ошибка подключения</string>
     <string name="auth_error">Ошибка аутентификации</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="no_accounts">У вас нет добавленных аккаунтов</string>
+    <string name="add_account"><u>Добавить аккаунт</u></string>
+    <string name="add_account_prompt">Добавьте аккаунт</string>
 </resources>

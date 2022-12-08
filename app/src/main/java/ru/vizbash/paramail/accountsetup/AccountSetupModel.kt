@@ -53,7 +53,7 @@ class AccountSetupModel @Inject constructor(
     }
 
     suspend fun prepareImap(props: Properties, imapData: MailData): AccountService.CheckResult {
-        val res = accountService.checkSmtp(props, imapData)
+        val res = accountService.checkImap(props, imapData)
         if (res == AccountService.CheckResult.Ok) {
             this.imapData = imapData
             this.props += props

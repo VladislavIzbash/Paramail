@@ -10,19 +10,16 @@
         android:name="ru.vizbash.paramail.accountsetup.AccountSetupWizardFragment"
         android:label="@string/account_setup_fragment_label"
         tools:layout="@layout/fragment_account_setup_wizard">
-
-<!--        <action-->
-<!--            android:id="@+id/action_FirstFragment_to_SecondFragment"-->
-<!--            app:destination="@id/SecondFragment" />-->
     </fragment>
-<!--    <fragment-->
-<!--        android:id="@+id/SecondFragment"-->
-<!--        android:name="ru.vizbash.paramail.SecondFragment"-->
-<!--        android:label="@string/second_fragment_label"-->
-<!--        tools:layout="@layout/fragment_second">-->
 
-<!--        <action-->
-<!--            android:id="@+id/action_SecondFragment_to_FirstFragment"-->
-<!--            app:destination="@id/FirstFragment" />-->
-<!--    </fragment>-->
+    <fragment
+        android:id="@+id/NoAccountsFragment"
+        android:name="ru.vizbash.paramail.NoAccountsFragment"
+        android:label="@string/add_account_prompt"
+        tools:layout="@layout/fragment_no_accounts" />
+
+    <action
+        android:id="@+id/action_global_NoAccountsFragment"
+        app:destination="@id/NoAccountsFragment" />
+
 </navigation>
