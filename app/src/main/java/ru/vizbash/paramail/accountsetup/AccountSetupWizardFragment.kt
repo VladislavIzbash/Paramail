@@ -6,28 +6,52 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.createViewModelLazy
 import androidx.fragment.app.viewModels
+import androidx.hilt.navigation.HiltViewModelFactory
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
+import com.google.android.material.snackbar.Snackbar
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupWizardBinding
 
+@AndroidEntryPoint
 class AccountSetupWizardFragment : Fragment() {
     private var _ui: FragmentAccountSetupWizardBinding? = null
     private val ui get() = _ui!!
 
-    private val model: AccountSetupModel by viewModels(
-        ownerProducer = {
+//    private val model: AccountSetupModel by viewModels(
+//        ownerProducer = {
+//            val navHost = childFragmentManager.findFragmentById(R.id.nav_host_fragment)
+//                as NavHostFragment
+//            navHost.navController.getViewModelStoreOwner(R.id.account_setup_wizard)
+//        }
+//    )
+
+    private val model: AccountSetupModel by createViewModelLazy(
+        viewModelClass = AccountSetupModel::class,
+        storeProducer = {
             val navHost = childFragmentManager.findFragmentById(R.id.nav_host_fragment)
-                as NavHostFragment
-            navHost.navController.getViewModelStoreOwner(R.id.account_setup_wizard)
+                    as NavHostFragment
+
+            navHost.navController.getViewModelStoreOwner(R.id.account_setup_wizard).viewModelStore
+        },
+        factoryProducer = {
+            val navHost = childFragmentManager.findFragmentById(R.id.nav_host_fragment)
+                    as NavHostFragment
+
+            HiltViewModelFactory(
+                requireActivity(),
+                navHost.navController.getBackStackEntry(R.id.account_setup_wizard),
+            )
         }
     )
 
@@ -74,6 +98,9 @@ class AccountSetupWizardFragment : Fragment() {
                             ui.progress.isVisible = false
                             ui.connectionError.isVisible = true
                             ui.connectionError.text = state.phase.error
+                        }
+                        is WizardPhase.Done -> {
+                            findNavController().popBackStack()
                         }
                     }
                 }

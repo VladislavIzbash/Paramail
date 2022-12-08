@@ -5,13 +5,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.hilt.navigation.fragment.hiltNavGraphViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import ru.vizbash.paramail.R
-import ru.vizbash.paramail.mail.MailService
+import ru.vizbash.paramail.mail.AccountService
 import ru.vizbash.paramail.databinding.FragmentAccountSetupSmtpBinding
 import ru.vizbash.paramail.mail.Creds
 import ru.vizbash.paramail.mail.MailData
@@ -23,9 +23,7 @@ class AccountSetupSmtpFragment : Fragment() {
     private var _ui: FragmentAccountSetupSmtpBinding? = null
     private val ui get() = _ui!!
 
-    private val model: AccountSetupModel by navGraphViewModels(R.id.account_setup_wizard)
-
-    @Inject lateinit var mailService: MailService
+    private val model: AccountSetupModel by hiltNavGraphViewModels(R.id.account_setup_wizard)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -54,21 +52,7 @@ class AccountSetupSmtpFragment : Fragment() {
             ),
         )
 
-        model.onNext = {
-            model.wizardState.update {
-                it.copy(phase = WizardPhase.Loading)
-            }
-
-            val res = checkSmtp()
-            when (res) {
-                MailService.CheckResult.Ok -> {
-                    findNavController().navigate(R.id.action_accountSetupSmtpFragment_to_accountSetupImapFragment)
-                }
-                else -> model.wizardState.update {
-                    it.copy(phase = WizardPhase.Error(getString(res.errorId!!)))
-                }
-            }
-        }
+        model.onNext = this::onNext
     }
 
     override fun onDestroyView() {
@@ -76,24 +60,21 @@ class AccountSetupSmtpFragment : Fragment() {
         _ui = null
     }
 
-    suspend fun checkSmtp(): MailService.CheckResult {
-        val props = Properties()
-        //props["mail.imaps.user"] = ui.loginInput.text
-        //props["mail.imaps.host"] = ui.serverInput.text
-//        props["mail.store.protocol"] = "imaps"
-//        props["mail.imaps.port"] = ui.portInput.toString().toInt()
-//        props["mail.imaps.connectiontimeout"] = 1000
-        //props["mail.imaps.ssl.enable"] = true
+    private suspend fun onNext() {
+        model.wizardState.update {
+            it.copy(phase = WizardPhase.Loading)
+        }
 
+        val props = Properties()
         props["mail.smtp.auth"] = ui.useAuth.isChecked
         props["mail.smtp.ssl.enable"] = ui.useSsl.isChecked
-        //props["mail.smtp.host"] = ui.serverInput.text.toString()
-        //props["mail.smtp.port"] = ui.portInput.text.toString().toInt()
+        props["mail.smtp.connectiontimeout"] = 1000
+        props["mail.smtp.timeout"] = 1000
 
         val smtpData = MailData(
             ui.serverInput.text.toString(),
             ui.portInput.text.toString().toInt(),
-            if (ui.useSsl.isChecked) {
+            if (ui.useAuth.isChecked) {
                 Creds(
                     ui.loginInput.text.toString(),
                     ui.passwordInput.text.toString(),
@@ -103,6 +84,13 @@ class AccountSetupSmtpFragment : Fragment() {
             },
         )
 
-        return mailService.checkSmtp(props, smtpData)
+        when (val res = model.prepareSmtp(props, smtpData)) {
+            AccountService.CheckResult.Ok -> {
+                findNavController().navigate(R.id.action_accountSetupSmtpFragment_to_accountSetupImapFragment)
+            }
+            else -> model.wizardState.update {
+                it.copy(phase = WizardPhase.Error(getString(res.errorId!!)))
+            }
+        }
     }
 }

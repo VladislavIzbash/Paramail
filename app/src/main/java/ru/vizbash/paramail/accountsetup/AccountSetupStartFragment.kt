@@ -8,10 +8,12 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.fragment.app.Fragment
+import androidx.hilt.navigation.fragment.hiltNavGraphViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.navGraphViewModels
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.RecyclerView
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -19,11 +21,12 @@ import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupStartBinding
 import ru.vizbash.paramail.databinding.ItemAccountTypeBinding
 
+@AndroidEntryPoint
 class AccountSetupStartFragment : Fragment() {
     private var _ui: FragmentAccountSetupStartBinding? = null
     private val ui get() = _ui!!
 
-    private val model: AccountSetupModel by navGraphViewModels(R.id.account_setup_wizard)
+    private val model: AccountSetupModel by hiltNavGraphViewModels(R.id.account_setup_wizard)
 
     private var selected = false
 

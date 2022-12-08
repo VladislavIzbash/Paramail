@@ -3,6 +3,8 @@ package ru.vizbash.paramail.mail
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.R
+import ru.vizbash.paramail.storage.AccountDao
+import ru.vizbash.paramail.storage.AccountEntity
 import java.util.Properties
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -11,7 +13,9 @@ import javax.mail.MessagingException
 import javax.mail.Session
 
 @Singleton
-class MailService @Inject constructor() {
+class AccountService @Inject constructor(
+    private val accountDao: AccountDao,
+) {
     enum class CheckResult(val errorId: Int?) {
         Ok(null),
         ConnError(R.string.connection_error),
@@ -43,5 +47,42 @@ class MailService @Inject constructor() {
         } catch (e: MessagingException) {
             CheckResult.ConnError
         }
+    }
+
+    suspend fun checkImap(
+        props: Properties,
+        smtpData: MailData,
+    ): CheckResult = withContext(Dispatchers.IO) {
+        requireNotNull(smtpData.creds)
+
+        try {
+            val session = Session.getInstance(props, null)
+            val store = session.getStore("imap")
+            store.connect(smtpData.host, smtpData.port, smtpData.creds.login, smtpData.creds.secret)
+
+            CheckResult.Ok
+        } catch (e: AuthenticationFailedException) {
+            CheckResult.AuthError
+        } catch (e: MessagingException) {
+            CheckResult.ConnError
+        }
+    }
+
+    suspend fun addAccount(props: Properties, smtpData: MailData, imapData: MailData) {
+        requireNotNull(imapData.creds)
+
+        val entity = AccountEntity(
+            0,
+            props,
+            smtpData.host,
+            smtpData.port,
+            smtpData.creds?.login,
+            smtpData.creds?.secret,
+            imapData.host,
+            imapData.port,
+            imapData.creds.login,
+            imapData.creds.secret,
+        )
+        accountDao.insert(entity)
     }
 }

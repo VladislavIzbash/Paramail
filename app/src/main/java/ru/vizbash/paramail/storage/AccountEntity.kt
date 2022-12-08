@@ -8,7 +8,7 @@ import java.util.*
 
 @Entity(tableName = "account_entity")
 data class AccountEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int,
     @ColumnInfo(name = "properties") val props: Properties,
     @ColumnInfo(name = "smtp_host") val smtpHost: String,
     @ColumnInfo(name = "smtp_port") val smtpPort: Int,
