@@ -1,24 +1,20 @@
-package ru.vizbash.paramail.accountsetup
+package ru.vizbash.paramail.ui.accountsetup
 
-import android.content.Context
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.navigation.fragment.findNavController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
-import ru.vizbash.paramail.mail.AccountService
-import ru.vizbash.paramail.mail.MailData
+import ru.vizbash.paramail.mail.MailService
+import ru.vizbash.paramail.storage.entity.MailData
 import java.util.*
 import javax.inject.Inject
+import javax.mail.AuthenticationFailedException
+import javax.mail.MessagingException
 
 sealed class WizardPhase {
     data class Filling(val isValid: Boolean) : WizardPhase()
     object Loading : WizardPhase()
-    data class Error(val error: String): WizardPhase()
+    data class Error(val err: CheckResult): WizardPhase()
     object Done : WizardPhase()
 }
 
@@ -28,9 +24,11 @@ data class WizardState(
     val phase: WizardPhase,
 )
 
+enum class CheckResult { Ok, ConnError, AuthError }
+
 @HiltViewModel
 class AccountSetupModel @Inject constructor(
-    private val accountService: AccountService,
+    private val mailService: MailService,
 ) : ViewModel() {
     val wizardState = MutableStateFlow(WizardState(
         isFirst = true,
@@ -43,28 +41,36 @@ class AccountSetupModel @Inject constructor(
     private var smtpData: MailData? = null
     private var imapData: MailData? = null
 
-    suspend fun prepareSmtp(props: Properties, smtpData: MailData): AccountService.CheckResult {
-        val res = accountService.checkSmtp(props, smtpData)
-        if (res == AccountService.CheckResult.Ok) {
+    suspend fun prepareSmtp(props: Properties, smtpData: MailData): CheckResult {
+        try {
+            mailService.connectSmtp(props, smtpData)
             this.smtpData = smtpData
             this.props += props
+            return CheckResult.Ok
+        } catch (e: AuthenticationFailedException) {
+            return CheckResult.AuthError
+        } catch (e: MessagingException) {
+            return CheckResult.ConnError
         }
-        return res
     }
 
-    suspend fun prepareImap(props: Properties, imapData: MailData): AccountService.CheckResult {
-        val res = accountService.checkImap(props, imapData)
-        if (res == AccountService.CheckResult.Ok) {
+    suspend fun prepareImap(props: Properties, imapData: MailData): CheckResult {
+        try {
+            mailService.connectImap(props, imapData)
             this.imapData = imapData
             this.props += props
+            return CheckResult.Ok
+        } catch (e: AuthenticationFailedException) {
+            return CheckResult.AuthError
+        } catch (e: MessagingException) {
+            return CheckResult.ConnError
         }
-        return res
     }
 
     suspend fun addAccount() {
         requireNotNull(smtpData)
         requireNotNull(imapData)
 
-        accountService.addAccount(props, smtpData!!, imapData!!);
+        mailService.addAccount(props, smtpData!!, imapData!!)
     }
 }

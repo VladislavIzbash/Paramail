@@ -1,4 +1,4 @@
-package ru.vizbash.paramail.accountsetup
+package ru.vizbash.paramail.ui.accountsetup
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -6,16 +6,13 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.hilt.navigation.fragment.hiltNavGraphViewModels
-import androidx.navigation.fragment.findNavController
-import androidx.navigation.navGraphViewModels
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.update
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupImapBinding
-import ru.vizbash.paramail.mail.AccountService
-import ru.vizbash.paramail.mail.Creds
-import ru.vizbash.paramail.mail.MailData
-import java.util.Properties
+import ru.vizbash.paramail.storage.entity.Creds
+import ru.vizbash.paramail.storage.entity.MailData
+import java.util.*
 
 @AndroidEntryPoint
 class AccountSetupImapFragment : Fragment() {
@@ -66,21 +63,18 @@ class AccountSetupImapFragment : Fragment() {
         val imapData = MailData(
             ui.serverInput.text.toString(),
             ui.portInput.text.toString().toInt(),
-            Creds(
-                ui.loginInput.text.toString(),
-                ui.passwordInput.text.toString(),
-            ),
+            Creds(ui.loginInput.text.toString(), ui.passwordInput.text.toString()),
         )
 
         when (val res = model.prepareImap(props, imapData)) {
-            AccountService.CheckResult.Ok -> {
+            CheckResult.Ok -> {
                 model.addAccount()
                 model.wizardState.update {
                     it.copy(phase = WizardPhase.Done)
                 }
             }
             else -> model.wizardState.update {
-                it.copy(phase = WizardPhase.Error(getString(res.errorId!!)))
+                it.copy(phase = WizardPhase.Error(res))
             }
         }
     }

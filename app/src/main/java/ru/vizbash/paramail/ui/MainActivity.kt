@@ -1,7 +1,6 @@
-package ru.vizbash.paramail
+package ru.vizbash.paramail.ui
 
 import android.os.Bundle
-import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
@@ -11,6 +10,7 @@ import android.view.Menu
 import android.view.MenuItem
 import androidx.navigation.fragment.NavHostFragment
 import dagger.hilt.android.AndroidEntryPoint
+import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.ActivityMainBinding
 
 @AndroidEntryPoint

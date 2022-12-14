@@ -1,4 +1,4 @@
-package ru.vizbash.paramail.accountsetup
+package ru.vizbash.paramail.ui.accountsetup
 
 import android.content.Context
 import android.graphics.drawable.Drawable
@@ -62,8 +62,8 @@ class AccountSetupStartFragment : Fragment() {
         ui.accountTypeList.adapter = adapter
         ui.accountTypeList.addItemDecoration(DividerItemDecoration(
             requireContext(),
-            DividerItemDecoration.VERTICAL),
-        )
+            DividerItemDecoration.VERTICAL,
+        ))
     }
 
     override fun onDestroyView() {
@@ -114,7 +114,7 @@ class AccountSetupStartFragment : Fragment() {
         override fun getItemCount() = services.size
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            private val ui: ItemAccountTypeBinding = ItemAccountTypeBinding.bind(view)
+            private val ui = ItemAccountTypeBinding.bind(view)
 
             fun bind(pos: Int) {
                 val type = services[pos]
