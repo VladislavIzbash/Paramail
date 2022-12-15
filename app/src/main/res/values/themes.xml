@@ -12,6 +12,10 @@
         <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
+        <item name="colorOnSwipeAction">@color/white</item>
+        <item name="colorArchiveAction">@color/orange</item>
+        <item name="colorSpamAction">@color/red</item>
+        <item name="colorIncompleteAction">@color/gray</item>
     </style>
 
     <style name="Theme.Paramail.NoActionBar">

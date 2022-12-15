@@ -1,5 +1,6 @@
 package ru.vizbash.paramail.ui.messagelist
 
+import android.annotation.SuppressLint
 import android.text.format.DateFormat
 import android.view.LayoutInflater
 import android.view.View
@@ -26,12 +27,15 @@ class MessageAdapter : PagingDataAdapter<Message, MessageAdapter.ViewHolder>(DIF
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val ui = ItemMessageBinding.bind(view)
+
+        private val timeFormat = DateFormat.getTimeFormat(view.context)
         private val dateFormat = DateFormat.getDateFormat(view.context)
 
+        @SuppressLint("SetTextI18n")
         fun bind(message: Message) {
             ui.mailSubject.text = message.subject
-            ui.mailFrom.text = message.from.toString()
-            ui.mailDate.text = dateFormat.format(message.date)
+            ui.mailFrom.text = message.from
+            ui.mailDate.text = "${dateFormat.format(message.date)} ${timeFormat.format(message.date)}"
             ui.unreadIndicator.isVisible = message.isUnread
         }
     }

@@ -1,6 +1,6 @@
 package ru.vizbash.paramail.mail
 
-import android.app.appsearch.AppSearchManager.SearchContext
+import android.util.Log
 import androidx.paging.*
 import com.sun.mail.imap.IMAPStore
 import kotlinx.coroutines.Dispatchers
@@ -8,15 +8,13 @@ import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.storage.MessageDao
 import ru.vizbash.paramail.storage.entity.MailAccount
 import ru.vizbash.paramail.storage.entity.Message
-import java.util.*
 import javax.mail.Address
-import javax.mail.FetchProfile
 import javax.mail.Flags
 import javax.mail.Folder
 import javax.mail.MessagingException
-import javax.mail.UIDFolder.FetchProfileItem
 import javax.mail.internet.InternetAddress
-import javax.mail.search.SearchTerm
+
+private const val TAG = "MessageService"
 
 @OptIn(ExperimentalPagingApi::class)
 class MessageService(
@@ -35,22 +33,21 @@ class MessageService(
         }
     }
 
-    private suspend fun fetchMessages(folder: Folder, offset: Int, size: Int) {
-        val messages = folder.getMessages(offset + 1, offset + size)
-            .drop(offset)
-            .take(size)
+    private suspend fun fetchMessages(folder: Folder, startNum: Int, count: Int) {
+        val messages = folder.getMessages(startNum, startNum + count)
             .filter { it.subject != null }
             .map {
                 val from = it.from.first() as InternetAddress
 
                 Message(
                     id = 0,
+                    msgnum = it.messageNumber,
                     accountId = account.id,
                     subject = it.subject,
                     recipients = it.allRecipients.map(Address::toString),
                     from = from.address,
                     content = null,
-                    it.receivedDate,
+                    date = it.receivedDate,
                     isUnread = !it.isSet(Flags.Flag.SEEN),
                 )
             }
@@ -60,19 +57,15 @@ class MessageService(
 
     val remoteMediator: RemoteMediator<Int, Message>
         get() = object : RemoteMediator<Int, Message>() {
-            private var offset = 0
 
             override suspend fun load(
                 loadType: LoadType,
                 state: PagingState<Int, Message>,
             ): MediatorResult = withContext(Dispatchers.IO) {
-                val offset = when (loadType) {
-                    LoadType.REFRESH -> {
-                        offset = 0
-                        0
-                    }
+                val startNum = when (loadType) {
+                    LoadType.REFRESH -> 1
                     LoadType.PREPEND -> return@withContext MediatorResult.Success(true)
-                    LoadType.APPEND -> offset
+                    LoadType.APPEND -> (state.lastItemOrNull()?.msgnum ?: 0) + 1
                 }
                 val pageSize = if (loadType == LoadType.REFRESH) {
                     state.config.initialLoadSize
@@ -80,7 +73,7 @@ class MessageService(
                     state.config.pageSize
                 }
 
-                println("loading $pageSize messages at offset $offset")
+                Log.d(TAG, "loading $pageSize message starting from $startNum")
 
                 try {
                     checkConnection()
@@ -88,9 +81,13 @@ class MessageService(
                     val folder = store!!.getFolder("INBOX").apply {
                         open(Folder.READ_ONLY)
                     }
-                    fetchMessages(folder, offset, pageSize)
+                    fetchMessages(folder, startNum, pageSize)
 
-                    val reachedEnd = offset + pageSize >= folder.messageCount
+                    val reachedEnd = startNum + pageSize >= folder.messageCount
+                    if (reachedEnd) {
+                        Log.d(TAG, "reached end of folder")
+                    }
+
                     MediatorResult.Success(reachedEnd)
                 } catch (e: MessagingException) {
                     MediatorResult.Error(e)

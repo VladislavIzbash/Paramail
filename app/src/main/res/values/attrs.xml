@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="colorOnSwipeAction" format="color" />
+    <attr name="colorArchiveAction" format="color" />
+    <attr name="colorSpamAction" format="color" />
+    <attr name="colorIncompleteAction" format="color" />
+</resources>

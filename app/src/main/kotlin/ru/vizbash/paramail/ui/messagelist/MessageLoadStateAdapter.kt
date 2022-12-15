@@ -2,7 +2,9 @@ package ru.vizbash.paramail.ui.messagelist
 
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.view.isVisible
 import androidx.paging.LoadState
 import androidx.paging.LoadStateAdapter
@@ -11,7 +13,15 @@ import ru.vizbash.paramail.R
 
 class MessageLoadStateAdapter : LoadStateAdapter<MessageLoadStateAdapter.ViewHolder>() {
     override fun onCreateViewHolder(parent: ViewGroup, loadState: LoadState): ViewHolder {
-        val view = TextView(parent.context)
+        val view = TextView(parent.context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            textSize = parent.context.resources.getDimension(R.dimen.loading_text_size)
+        }
+
         return ViewHolder(view)
     }
 

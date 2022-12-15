@@ -21,8 +21,22 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+
+        debug {
+            def account = new Properties()
+            file("account.properties").withInputStream {
+                account.load(it)
+            }
+
+            buildConfigField("String", "SMTP_HOST", "\"${account.getProperty("smtp_host")}\"")
+            buildConfigField("Integer", "SMTP_PORT", account.getProperty("smtp_port"))
+            buildConfigField("String", "IMAP_HOST", "\"${account.getProperty("imap_host")}\"")
+            buildConfigField("Integer", "IMAP_PORT", account.getProperty("imap_port"))
+            buildConfigField("String", "LOGIN", "\"${account.getProperty("login")}\"")
+            buildConfigField("String", "PASSWORD", "\"${account.getProperty("password")}\"")
         }
     }
     compileOptions {
@@ -41,11 +55,12 @@ dependencies {
     implementation 'androidx.core:core-ktx:1.9.0'
     implementation 'androidx.appcompat:appcompat:1.5.1'
     implementation 'androidx.recyclerview:recyclerview-selection:1.1.0'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.navigation:navigation-fragment-ktx:2.5.3'
     implementation 'androidx.navigation:navigation-ui-ktx:2.5.3'
     implementation 'androidx.hilt:hilt-navigation-fragment:1.0.0'
-    implementation "androidx.viewpager2:viewpager2:1.0.0"
+    implementation 'androidx.viewpager2:viewpager2:1.0.0'
     implementation 'androidx.paging:paging-runtime-ktx:3.1.1'
 
     implementation 'com.google.android.material:material:1.7.0'

@@ -8,6 +8,7 @@ import java.util.Date
 @Entity(tableName = "messages")
 data class Message(
     @ColumnInfo(name = "id") @PrimaryKey(autoGenerate = true) val id: Int,
+    @ColumnInfo(name = "msgnum") val msgnum: Int,
     @ColumnInfo(name = "account_id") val accountId: Int,
     @ColumnInfo(name = "subject") val subject: String,
     @ColumnInfo(name = "recipients") val recipients: List<String>,

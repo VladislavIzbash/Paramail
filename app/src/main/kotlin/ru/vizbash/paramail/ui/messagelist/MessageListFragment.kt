@@ -9,7 +9,9 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.paging.LoadState
 import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.ItemTouchHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -50,6 +52,16 @@ class MessageListFragment : Fragment() {
             requireContext(),
             DividerItemDecoration.VERTICAL,
         ))
+        val touchHelper = ItemTouchHelper(MessageTouchCallback(ui.root))
+        touchHelper.attachToRecyclerView(ui.messageList)
+
+        ui.root.setOnRefreshListener {
+            messageAdapter.refresh()
+        }
+
+        messageAdapter.addLoadStateListener { loadState ->
+            ui.root.isRefreshing = loadState.refresh == LoadState.Loading
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
