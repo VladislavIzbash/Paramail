@@ -1,6 +1,7 @@
 package ru.vizbash.paramail.ui.messagelist
 
 import android.annotation.SuppressLint
+import android.graphics.Typeface
 import android.text.format.DateFormat
 import android.view.LayoutInflater
 import android.view.View
@@ -14,6 +15,7 @@ import ru.vizbash.paramail.databinding.ItemMessageBinding
 import ru.vizbash.paramail.storage.entity.Message
 
 class MessageAdapter : PagingDataAdapter<Message, MessageAdapter.ViewHolder>(DIFF_CALLBACK) {
+    var onMessageClickListener: (Message) -> Unit = {}
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -25,18 +27,20 @@ class MessageAdapter : PagingDataAdapter<Message, MessageAdapter.ViewHolder>(DIF
         holder.bind(getItem(position)!!)
     }
 
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val ui = ItemMessageBinding.bind(view)
 
         private val timeFormat = DateFormat.getTimeFormat(view.context)
         private val dateFormat = DateFormat.getDateFormat(view.context)
 
-        @SuppressLint("SetTextI18n")
         fun bind(message: Message) {
             ui.mailSubject.text = message.subject
             ui.mailFrom.text = message.from
-            ui.mailDate.text = "${dateFormat.format(message.date)} ${timeFormat.format(message.date)}"
-            ui.unreadIndicator.isVisible = message.isUnread
+            @SuppressLint("SetTextI18n")
+            ui.mailDate.text = "${dateFormat.format(message.date)}\n${timeFormat.format(message.date)}"
+            ui.mailSubject.typeface = if (message.isUnread) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+
+            ui.root.setOnClickListener { onMessageClickListener(message) }
         }
     }
 }

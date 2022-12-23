@@ -33,13 +33,13 @@ class GettingStartedFragment : Fragment() {
 
         val addButton = view.findViewById<TextView>(R.id.add_account_button)
         addButton.setOnClickListener {
-            findNavController().navigate(R.id.action_GettingStartedFragment_to_AccountSetupWizardFragment)
+            findNavController().navigate(R.id.action_gettingStartedFragment_to_accountSetupWizardFragment)
         }
 
         runBlocking {
             val account = mailService.accountList().firstOrNull()
             if (account != null) {
-                findNavController().navigate(R.id.action_GettingStartedFragment_to_MessageListFragment, bundleOf(
+                findNavController().navigate(R.id.action_gettingStartedFragment_to_messageListFragment, bundleOf(
                     MessageListFragment.ARG_ACCOUNT_ID to account.id
                 ))
             }

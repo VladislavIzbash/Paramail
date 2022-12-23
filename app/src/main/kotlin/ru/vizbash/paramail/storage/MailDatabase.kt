@@ -5,9 +5,10 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import ru.vizbash.paramail.storage.entity.MailAccount
 import ru.vizbash.paramail.storage.entity.Message
+import ru.vizbash.paramail.storage.entity.MessageBody
 
 @Database(
-    entities = [MailAccount::class, Message::class],
+    entities = [MailAccount::class, Message::class, MessageBody::class],
     version = 4,
 )
 @TypeConverters(Converters::class)

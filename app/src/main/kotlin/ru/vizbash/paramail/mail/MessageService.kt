@@ -8,11 +8,14 @@ import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.storage.MessageDao
 import ru.vizbash.paramail.storage.entity.MailAccount
 import ru.vizbash.paramail.storage.entity.Message
+import ru.vizbash.paramail.storage.entity.MessageBody
+import javax.activation.MimeType
 import javax.mail.Address
 import javax.mail.Flags
 import javax.mail.Folder
 import javax.mail.MessagingException
 import javax.mail.internet.InternetAddress
+import javax.mail.internet.MimeMultipart
 
 private const val TAG = "MessageService"
 
@@ -27,10 +30,11 @@ class MessageService(
     val storedMessages: PagingSource<Int, Message>
         get() = messageDao.pageAll(account.id)
 
-    private suspend fun checkConnection() {
+    private suspend fun connectStore(): IMAPStore {
         if (store == null || !store!!.isConnected) {
             store = mailService.connectImap(account.props, account.imap)
         }
+        return store!!
     }
 
     private suspend fun fetchMessages(folder: Folder, startNum: Int, count: Int) {
@@ -46,7 +50,7 @@ class MessageService(
                     subject = it.subject,
                     recipients = it.allRecipients.map(Address::toString),
                     from = from.address,
-                    content = null,
+                    body_id = null,
                     date = it.receivedDate,
                     isUnread = !it.isSet(Flags.Flag.SEEN),
                 )
@@ -76,9 +80,7 @@ class MessageService(
                 Log.d(TAG, "loading $pageSize message starting from $startNum")
 
                 try {
-                    checkConnection()
-
-                    val folder = store!!.getFolder("INBOX").apply {
+                    val folder = connectStore().getFolder("INBOX").apply {
                         open(Folder.READ_ONLY)
                     }
                     fetchMessages(folder, startNum, pageSize)
@@ -94,4 +96,49 @@ class MessageService(
                 }
             }
         }
+
+    suspend fun getById(messageId: Int) = messageDao.getById(messageId)
+
+    suspend fun getMessageBody(message: Message): MessageBody {
+        return if (message.body_id == null) {
+            withContext(Dispatchers.IO) {
+                val folder = connectStore().getFolder("INBOX").apply {
+                    open(Folder.READ_ONLY)
+                }
+                val remoteMsg = folder.getMessage(message.msgnum)
+                val content = parseContent(remoteMsg.contentType, remoteMsg.content)
+
+                val body = MessageBody(
+                    id = 0,
+                    content = content,
+                    mime = remoteMsg.contentType,
+                )
+                messageDao.setBody(message, body)
+                body
+            }
+        } else {
+            messageDao.getBodyById(message.body_id)!!
+        }
+    }
+
+    private fun parseContent(contentType: String, content: Any): String {
+        return when {
+            contentType.startsWith("text/") -> content.toString()
+            contentType.startsWith("multipart/alternative") -> {
+                assembleMultipart(content as MimeMultipart)
+            }
+            else -> "$contentType are not supported yet"
+        }
+    }
+
+    private fun assembleMultipart(multipart: MimeMultipart): String {
+        val content = (0 until multipart.count).asSequence()
+            .map {
+                val bodyPart = multipart.getBodyPart(it)
+                parseContent(bodyPart.contentType, bodyPart.content)
+            }
+            .joinToString("\n=====================\n")
+
+        return content
+    }
 }

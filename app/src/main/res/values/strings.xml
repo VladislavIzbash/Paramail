@@ -20,9 +20,12 @@
     <string name="default_imap_port">993</string>
     <string name="connection_error">Ошибка подключения</string>
     <string name="auth_error">Ошибка аутентификации</string>
-    <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="no_accounts">У вас пока нет аккаунтов</string>
     <string name="add_account"><u>Добавить аккаунт</u></string>
     <string name="getting_started">Начало работы</string>
-    <string name="loading_messages">Загрузка сообщений...</string>
+    <string name="loading_messages">Загрузка сообщений…</string>
+    <string name="forward">Переслать</string>
+    <string name="reply">Ответить</string>
+    <string name="loading">Загрузка...</string>
+    <string name="replyAll">Ответить всем</string>
 </resources>

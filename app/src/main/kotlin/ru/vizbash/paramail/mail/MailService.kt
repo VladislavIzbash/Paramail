@@ -44,7 +44,6 @@ class MailService @Inject constructor(
         imapData: MailData,
     ): IMAPStore = withContext(Dispatchers.IO) {
         requireNotNull(imapData.creds)
-        props.forEach { k, v -> println("$k: $v") }
 
         val session = Session.getInstance(props)
         val store = session.getStore("imap")
@@ -69,8 +68,9 @@ class MailService @Inject constructor(
 
     suspend fun getAccountById(accountId: Int) = accountDao.getById(accountId)
 
-    fun getMessageService(account: MailAccount): MessageService {
-        return messageServices.getOrPut(account.id) {
+    suspend fun getMessageService(accountId: Int): MessageService {
+        return messageServices.getOrPut(accountId) {
+            val account = accountDao.getById(accountId)!!
             MessageService(account, messageDao, this)
         }
     }

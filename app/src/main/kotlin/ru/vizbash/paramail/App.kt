@@ -2,6 +2,7 @@ package ru.vizbash.paramail
 
 import android.app.Application
 import android.util.Log
+import android.webkit.WebView
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.storage.AccountDao
@@ -17,6 +18,8 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
         if (BuildConfig.DEBUG) {
             val props = Properties()

@@ -3,35 +3,46 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/GettingStartedFragment">
+    app:startDestination="@id/gettingStartedFragment">
 
     <fragment
-        android:id="@+id/GettingStartedFragment"
+        android:id="@+id/gettingStartedFragment"
         android:name="ru.vizbash.paramail.ui.GettingStartedFragment"
         android:label="@string/getting_started"
         tools:layout="@layout/fragment_getting_started" >
 
         <action
-            android:id="@+id/action_GettingStartedFragment_to_AccountSetupWizardFragment"
-            app:destination="@id/AccountSetupWizardFragment" />
+            android:id="@+id/action_gettingStartedFragment_to_accountSetupWizardFragment"
+            app:destination="@id/accountSetupWizardFragment" />
         <action
-            android:id="@+id/action_GettingStartedFragment_to_MessageListFragment"
-            app:destination="@id/MessageListFragment"
+            android:id="@+id/action_gettingStartedFragment_to_messageListFragment"
+            app:destination="@id/messageListFragment"
             app:popUpTo="@id/nav_graph"
             app:popUpToInclusive="true" />
     </fragment>
 
     <fragment
-        android:id="@+id/AccountSetupWizardFragment"
+        android:id="@+id/accountSetupWizardFragment"
         android:name="ru.vizbash.paramail.ui.accountsetup.AccountSetupWizardFragment"
         android:label="@string/account_setup_fragment_label"
         tools:layout="@layout/fragment_account_setup_wizard">
     </fragment>
 
     <fragment
-        android:id="@+id/MessageListFragment"
+        android:id="@+id/messageListFragment"
         android:name="ru.vizbash.paramail.ui.messagelist.MessageListFragment"
         android:label="INBOX"
-        tools:layout="@layout/fragment_message_list" />
+        tools:layout="@layout/fragment_message_list" >
+
+        <action
+            android:id="@+id/action_messageListFragment_to_messageViewFragment"
+            app:destination="@id/messageViewFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/messageViewFragment"
+        android:name="ru.vizbash.paramail.ui.MessageViewFragment"
+        android:label="fragment_message_view"
+        tools:layout="@layout/fragment_message_view" />
 
 </navigation>
