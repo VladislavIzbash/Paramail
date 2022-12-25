@@ -8,12 +8,12 @@ import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.storage.MessageDao
 import ru.vizbash.paramail.storage.entity.MailAccount
 import ru.vizbash.paramail.storage.entity.Message
-import ru.vizbash.paramail.storage.entity.MessageBody
-import javax.activation.MimeType
+import ru.vizbash.paramail.storage.entity.MessagePart
 import javax.mail.Address
 import javax.mail.Flags
 import javax.mail.Folder
 import javax.mail.MessagingException
+import javax.mail.internet.ContentType
 import javax.mail.internet.InternetAddress
 import javax.mail.internet.MimeMultipart
 
@@ -50,7 +50,6 @@ class MessageService(
                     subject = it.subject,
                     recipients = it.allRecipients.map(Address::toString),
                     from = from.address,
-                    body_id = null,
                     date = it.receivedDate,
                     isUnread = !it.isSet(Flags.Flag.SEEN),
                 )
@@ -77,7 +76,7 @@ class MessageService(
                     state.config.pageSize
                 }
 
-                Log.d(TAG, "loading $pageSize message starting from $startNum")
+                Log.d(TAG, "loading $pageSize messages starting from $startNum")
 
                 try {
                     val folder = connectStore().getFolder("INBOX").apply {
@@ -99,46 +98,61 @@ class MessageService(
 
     suspend fun getById(messageId: Int) = messageDao.getById(messageId)
 
-    suspend fun getMessageBody(message: Message): MessageBody {
-        return if (message.body_id == null) {
+    suspend fun getMessageBody(message: Message): List<MessagePart> {
+        return messageDao.getBodyParts(message.id).ifEmpty {
             withContext(Dispatchers.IO) {
                 val folder = connectStore().getFolder("INBOX").apply {
                     open(Folder.READ_ONLY)
                 }
                 val remoteMsg = folder.getMessage(message.msgnum)
-                val content = parseContent(remoteMsg.contentType, remoteMsg.content)
 
-                val body = MessageBody(
-                    id = 0,
-                    content = content,
-                    mime = remoteMsg.contentType,
-                )
-                messageDao.setBody(message, body)
-                body
+                val parts = fetchParts(remoteMsg, message.id)
+                messageDao.insertBodyParts(parts)
+                parts
             }
-        } else {
-            messageDao.getBodyById(message.body_id)!!
         }
     }
 
-    private fun parseContent(contentType: String, content: Any): String {
+    private fun fetchParts(msg: javax.mail.Message, msgId: Int): List<MessagePart> {
         return when {
-            contentType.startsWith("text/") -> content.toString()
-            contentType.startsWith("multipart/alternative") -> {
-                assembleMultipart(content as MimeMultipart)
+            msg.contentType.startsWith("multipart/mixed") -> {
+                fetchMixed(msg.content as MimeMultipart, msgId)
             }
-            else -> "$contentType are not supported yet"
+            msg.contentType.startsWith("multipart/alternative") -> {
+                 listOf(fetchAlternative(msg.content as MimeMultipart, msgId))
+            }
+            else -> listOf(MessagePart(
+                id = 0,
+                messageId = msgId,
+                content = msg.inputStream.readBytes(),
+                mime = msg.contentType,
+            ))
         }
     }
 
-    private fun assembleMultipart(multipart: MimeMultipart): String {
-        val content = (0 until multipart.count).asSequence()
-            .map {
-                val bodyPart = multipart.getBodyPart(it)
-                parseContent(bodyPart.contentType, bodyPart.content)
+    private fun fetchMixed(multipart: MimeMultipart, msgId: Int): List<MessagePart> {
+        return (0 until multipart.count).map {
+            val part = multipart.getBodyPart(it)
+            if (part.contentType.startsWith("multipart/alternative")) {
+                fetchAlternative(part.content as MimeMultipart, msgId)
+            } else {
+                MessagePart(
+                    id = 0,
+                    messageId = msgId,
+                    content = part.inputStream.readBytes(),
+                    mime = part.contentType,
+                )
             }
-            .joinToString("\n=====================\n")
+        }
+    }
 
-        return content
+    private fun fetchAlternative(multipart: MimeMultipart, msgId: Int): MessagePart {
+        val last = multipart.getBodyPart(multipart.count - 1)
+        return MessagePart(
+            id = 0,
+            messageId = msgId,
+            content = last.inputStream.readBytes(),
+            mime = last.contentType,
+        )
     }
 }

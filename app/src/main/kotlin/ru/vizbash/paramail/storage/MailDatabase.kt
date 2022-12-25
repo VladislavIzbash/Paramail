@@ -5,11 +5,11 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import ru.vizbash.paramail.storage.entity.MailAccount
 import ru.vizbash.paramail.storage.entity.Message
-import ru.vizbash.paramail.storage.entity.MessageBody
+import ru.vizbash.paramail.storage.entity.MessagePart
 
 @Database(
-    entities = [MailAccount::class, Message::class, MessageBody::class],
-    version = 4,
+    entities = [MailAccount::class, Message::class, MessagePart::class],
+    version = 5,
 )
 @TypeConverters(Converters::class)
 abstract class MailDatabase: RoomDatabase() {

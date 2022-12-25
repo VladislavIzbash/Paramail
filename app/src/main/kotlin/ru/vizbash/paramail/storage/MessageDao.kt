@@ -5,10 +5,9 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Update
 import ru.vizbash.paramail.storage.entity.Message
-import ru.vizbash.paramail.storage.entity.MessageBody
+import ru.vizbash.paramail.storage.entity.MessagePart
 
 @Dao
 interface MessageDao {
@@ -22,18 +21,11 @@ interface MessageDao {
     suspend fun update(message: Message)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBody(body: MessageBody): Long
+    suspend fun insertBodyParts(parts: List<MessagePart>)
 
-    @Query("SELECT * FROM message_bodies WHERE id = :id")
-    suspend fun getBodyById(id: Int): MessageBody?
+    @Query("SELECT * FROM message_parts WHERE message_id = :messageId")
+    suspend fun getBodyParts(messageId: Int): List<MessagePart>
 
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getById(id: Int): Message?
-
-    @Transaction
-    suspend fun setBody(message: Message, body: MessageBody) {
-        val body_id = insertBody(body).toInt()
-        val newMessage = message.copy(body_id = body_id)
-        update(newMessage)
-    }
 }
