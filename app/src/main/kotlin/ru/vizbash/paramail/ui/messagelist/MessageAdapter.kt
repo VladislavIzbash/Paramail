@@ -6,13 +6,12 @@ import android.text.format.DateFormat
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.view.isVisible
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.ItemMessageBinding
-import ru.vizbash.paramail.storage.entity.Message
+import ru.vizbash.paramail.storage.message.Message
 
 class MessageAdapter : PagingDataAdapter<Message, MessageAdapter.ViewHolder>(DIFF_CALLBACK) {
     var onMessageClickListener: (Message) -> Unit = {}
@@ -24,7 +23,7 @@ class MessageAdapter : PagingDataAdapter<Message, MessageAdapter.ViewHolder>(DIF
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position)!!)
+        getItem(position)?.let { holder.bind(it) }
     }
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {

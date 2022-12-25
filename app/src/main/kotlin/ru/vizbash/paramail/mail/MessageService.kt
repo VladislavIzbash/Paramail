@@ -2,33 +2,35 @@ package ru.vizbash.paramail.mail
 
 import android.util.Log
 import androidx.paging.*
+import androidx.room.withTransaction
+import com.sun.mail.imap.IMAPFolder
 import com.sun.mail.imap.IMAPStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import ru.vizbash.paramail.storage.MessageDao
+import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.entity.MailAccount
-import ru.vizbash.paramail.storage.entity.Message
-import ru.vizbash.paramail.storage.entity.MessagePart
+import ru.vizbash.paramail.storage.message.Message
+import ru.vizbash.paramail.storage.message.MessagePagingKey
+import ru.vizbash.paramail.storage.message.MessagePart
 import javax.mail.Address
 import javax.mail.Flags
 import javax.mail.Folder
+import javax.mail.Message.RecipientType
 import javax.mail.MessagingException
-import javax.mail.internet.ContentType
 import javax.mail.internet.InternetAddress
 import javax.mail.internet.MimeMultipart
 
 private const val TAG = "MessageService"
 
-@OptIn(ExperimentalPagingApi::class)
 class MessageService(
     private val account: MailAccount,
-    private val messageDao: MessageDao,
+    private val db: MailDatabase,
     private val mailService: MailService,
 ) {
     private var store: IMAPStore? = null
 
     val storedMessages: PagingSource<Int, Message>
-        get() = messageDao.pageAll(account.id)
+        get() = db.messageDao().pageAll(account.id)
 
     private suspend fun connectStore(): IMAPStore {
         if (store == null || !store!!.isConnected) {
@@ -37,9 +39,12 @@ class MessageService(
         return store!!
     }
 
-    private suspend fun fetchMessages(folder: Folder, startNum: Int, count: Int) {
-        val messages = folder.getMessages(startNum, startNum + count)
-            .filter { it.subject != null }
+    private fun fetchMessagePage(folder: IMAPFolder, pageNum: Int, pageSize: Int): List<Message> {
+        val offset = pageNum * pageSize
+        val msgCount = folder.messageCount
+        return folder.getMessages(msgCount - offset - pageSize + 1, msgCount - offset)
+            .filter { it.allRecipients != null && it.subject != null }
+            .reversed()
             .map {
                 val from = it.from.first() as InternetAddress
 
@@ -48,58 +53,90 @@ class MessageService(
                     msgnum = it.messageNumber,
                     accountId = account.id,
                     subject = it.subject,
-                    recipients = it.allRecipients.map(Address::toString),
+                    recipients = it.getRecipients(RecipientType.TO).map(Address::toString),
                     from = from.address,
                     date = it.receivedDate,
                     isUnread = !it.isSet(Flags.Flag.SEEN),
                 )
             }
-
-        messageDao.insert(messages)
     }
 
+    @OptIn(ExperimentalPagingApi::class)
     val remoteMediator: RemoteMediator<Int, Message>
         get() = object : RemoteMediator<Int, Message>() {
+
+            override suspend fun initialize() = withContext(Dispatchers.IO) {
+                val hasNewMsgs = connectStore().defaultFolder.getFolder("INBOX").hasNewMessages()
+                val hasCachedMsgs = db.messageDao().getMessageCount() > 0
+
+                if (!hasCachedMsgs || hasNewMsgs) {
+                    InitializeAction.LAUNCH_INITIAL_REFRESH
+                } else {
+                    InitializeAction.SKIP_INITIAL_REFRESH
+                }
+            }
 
             override suspend fun load(
                 loadType: LoadType,
                 state: PagingState<Int, Message>,
             ): MediatorResult = withContext(Dispatchers.IO) {
-                val startNum = when (loadType) {
-                    LoadType.REFRESH -> 1
+                val pageNum = when (loadType) {
+                    LoadType.REFRESH -> {
+                        val currentItem = state.anchorPosition?.let {
+                            state.closestItemToPosition(it)
+                        }
+                        val pagingKey = currentItem?.let {
+                            db.messagePagingDao().getPagingKeyById(it.id)
+                        }
+                        pagingKey?.nextPage?.minus(1) ?: 0
+                    }
                     LoadType.PREPEND -> return@withContext MediatorResult.Success(true)
-                    LoadType.APPEND -> (state.lastItemOrNull()?.msgnum ?: 0) + 1
-                }
-                val pageSize = if (loadType == LoadType.REFRESH) {
-                    state.config.initialLoadSize
-                } else {
-                    state.config.pageSize
+                    LoadType.APPEND -> {
+                        val pagingKey = state.lastItemOrNull()?.let {
+                            db.messagePagingDao().getPagingKeyById(it.id)!!
+                        }
+                        pagingKey?.nextPage ?: return@withContext MediatorResult.Success(true)
+                    }
                 }
 
-                Log.d(TAG, "loading $pageSize messages starting from $startNum")
+                val pageSize = state.config.pageSize
+
+                Log.d(TAG, "loading $pageSize messages starting from page $pageNum")
 
                 try {
                     val folder = connectStore().getFolder("INBOX").apply {
                         open(Folder.READ_ONLY)
                     }
-                    fetchMessages(folder, startNum, pageSize)
 
-                    val reachedEnd = startNum + pageSize >= folder.messageCount
-                    if (reachedEnd) {
-                        Log.d(TAG, "reached end of folder")
+                    val reachedEnd = pageNum + pageSize >= folder.messageCount
+                    if (!reachedEnd) {
+                        val messages = fetchMessagePage(folder as IMAPFolder, pageNum, pageSize)
+                        db.withTransaction {
+                            if (loadType == LoadType.REFRESH) {
+                                db.messagePagingDao().clearPagingKeys()
+                                db.messageDao().clearAll()
+                            }
+
+                            val ids = db.messageDao().insertAll(messages)
+                            val pagingKeys = ids.map {
+                                MessagePagingKey(msg_id = it.toInt(), nextPage = pageNum + 1)
+                            }
+                            db.messagePagingDao().insertPagingKeys(pagingKeys)
+                        }
                     }
 
                     MediatorResult.Success(reachedEnd)
                 } catch (e: MessagingException) {
+                    e.printStackTrace()
                     MediatorResult.Error(e)
                 }
             }
         }
 
-    suspend fun getById(messageId: Int) = messageDao.getById(messageId)
+    suspend fun getById(messageId: Int) = db.messageDao().getById(messageId)
 
     suspend fun getMessageBody(message: Message): List<MessagePart> {
-        return messageDao.getBodyParts(message.id).ifEmpty {
+        return db.messageDao().getBodyParts(message.id).ifEmpty {
             withContext(Dispatchers.IO) {
                 val folder = connectStore().getFolder("INBOX").apply {
                     open(Folder.READ_ONLY)
@@ -107,7 +144,7 @@ class MessageService(
                 val remoteMsg = folder.getMessage(message.msgnum)
 
                 val parts = fetchParts(remoteMsg, message.id)
-                messageDao.insertBodyParts(parts)
+                db.messageDao().insertBodyParts(parts)
                 parts
             }
         }

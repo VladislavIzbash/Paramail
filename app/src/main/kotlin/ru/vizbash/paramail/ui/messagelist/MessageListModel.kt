@@ -26,7 +26,7 @@ class MessageListModel @Inject constructor(
         val pager =  Pager(
             config = PagingConfig(
                 pageSize = 20,
-                enablePlaceholders = false,
+                enablePlaceholders = true,
             ),
             remoteMediator = messageService.remoteMediator,
         ) {

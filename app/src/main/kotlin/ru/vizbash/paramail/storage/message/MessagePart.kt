@@ -1,4 +1,4 @@
-package ru.vizbash.paramail.storage.entity
+package ru.vizbash.paramail.storage.message
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity

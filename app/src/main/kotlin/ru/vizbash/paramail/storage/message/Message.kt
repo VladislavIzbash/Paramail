@@ -1,12 +1,18 @@
-package ru.vizbash.paramail.storage.entity
+package ru.vizbash.paramail.storage.message
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.Date
 
-@Entity(tableName = "messages")
+@Entity(
+    tableName = "messages",
+    indices = [
+        Index("msgnum", unique = true),
+    ]
+)
 data class Message(
     @ColumnInfo(name = "id") @PrimaryKey(autoGenerate = true) val id: Int,
     @ColumnInfo(name = "msgnum") val msgnum: Int,

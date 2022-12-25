@@ -4,7 +4,8 @@ import com.sun.mail.imap.IMAPStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.storage.AccountDao
-import ru.vizbash.paramail.storage.MessageDao
+import ru.vizbash.paramail.storage.MailDatabase
+import ru.vizbash.paramail.storage.message.MessageDao
 import ru.vizbash.paramail.storage.entity.MailAccount
 import ru.vizbash.paramail.storage.entity.MailData
 import java.util.Properties
@@ -15,8 +16,7 @@ import javax.mail.Transport
 
 @Singleton
 class MailService @Inject constructor(
-    private val accountDao: AccountDao,
-    private val messageDao: MessageDao,
+    private val db: MailDatabase,
 ) {
     private val messageServices = mutableMapOf<Int, MessageService>()
 
@@ -57,21 +57,21 @@ class MailService @Inject constructor(
         store as IMAPStore
     }
 
-    suspend fun accountList() = accountDao.getAll()
+    suspend fun accountList() = db.accountDao().getAll()
 
     suspend fun addAccount(props: Properties, smtpData: MailData, imapData: MailData) {
         requireNotNull(imapData.creds)
 
         val account = MailAccount(0, props, smtpData, imapData)
-        accountDao.insert(account)
+        db.accountDao().insert(account)
     }
 
-    suspend fun getAccountById(accountId: Int) = accountDao.getById(accountId)
+    suspend fun getAccountById(accountId: Int) = db.accountDao().getById(accountId)
 
     suspend fun getMessageService(accountId: Int): MessageService {
         return messageServices.getOrPut(accountId) {
-            val account = accountDao.getById(accountId)!!
-            MessageService(account, messageDao, this)
+            val account = db.accountDao().getById(accountId)!!
+            MessageService(account, db, this)
         }
     }
 }

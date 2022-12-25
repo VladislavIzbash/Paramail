@@ -7,7 +7,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import ru.vizbash.paramail.storage.AccountDao
+import ru.vizbash.paramail.storage.message.MessageDao
 
 @Module
 @InstallIn(SingletonComponent::class)
