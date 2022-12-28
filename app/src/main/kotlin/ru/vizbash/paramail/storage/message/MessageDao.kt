@@ -30,6 +30,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getById(id: Int): Message?
 
+    @Query("SELECT * FROM messages WHERE msgnum = :num")
+    suspend fun getByMsgNum(num: Int): Message?
+
     @Query("SELECT COUNT(*) from messages")
     suspend fun getMessageCount(): Int
 }

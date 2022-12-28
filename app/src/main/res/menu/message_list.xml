@@ -4,6 +4,7 @@
     tools:context="ru.vizbash.paramail.ui.MainActivity">
 
     <item
+        android:id="@+id/item_search"
         android:title="@string/search_messages"
         android:icon="@drawable/ic_search"
         app:showAsAction="collapseActionView|always"
