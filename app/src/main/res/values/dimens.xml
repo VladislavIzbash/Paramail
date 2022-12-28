@@ -3,4 +3,5 @@
     <dimen name="wizard_top_margin">100dp</dimen>
     <dimen name="loading_text_size">5dp</dimen>
     <dimen name="message_no_contents_margin_top">20dp</dimen>
+    <dimen name="plain_text_content_padding">5dp</dimen>
 </resources>

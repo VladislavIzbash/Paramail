@@ -50,13 +50,19 @@ class MessageListFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        ui.messageList.adapter = messageAdapter.withLoadStateHeaderAndFooter(MessageLoadStateAdapter(), MessageLoadStateAdapter())
+        ui.messageList.adapter =
+            messageAdapter.withLoadStateHeaderAndFooter(MessageLoadStateAdapter(),
+                MessageLoadStateAdapter())
         ui.messageList.addItemDecoration(DividerItemDecoration(
             requireContext(),
             DividerItemDecoration.VERTICAL,
         ))
-        val touchHelper = ItemTouchHelper(MessageTouchCallback(ui.root))
-        touchHelper.attachToRecyclerView(ui.messageList)
+
+        val touchCallback = MessageTouchCallback(ui.root)
+        touchCallback.swipeStateListener = { isSwiping ->
+            ui.root.isEnabled = !isSwiping
+        }
+        ItemTouchHelper(touchCallback).attachToRecyclerView(ui.messageList)
 
         ui.root.setOnRefreshListener {
             messageAdapter.refresh()
@@ -90,7 +96,8 @@ class MessageListFragment : Fragment() {
                 MessageViewFragment.ARG_ACCOUNT_ID to model.accountId,
                 MessageViewFragment.ARG_MESSAGE_ID to msg.id,
             )
-            findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment, args)
+            findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment,
+                args)
         }
     }
 

@@ -39,8 +39,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toEndOf="@id/from"
-            android:layout_marginStart="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
             tools:text="Дата и время" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
@@ -62,7 +61,6 @@
 
         <ScrollView
             android:id="@+id/bodyContentView"
-            android:padding="5dp"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
@@ -73,24 +71,48 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="end">
+        android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/replyButton"
-            android:layout_width="wrap_content"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/replyAllButton"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="@string/reply"
-            app:icon="@drawable/ic_reply"
+            android:layout_weight="3"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="@string/reply_all"
+            android:textSize="12sp"
+            android:maxLines="1"
+            app:icon="@drawable/ic_reply_all"
+            app:iconGravity="top"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
-        <Button
-            android:id="@+id/forwardButton"
-            android:layout_width="wrap_content"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/replyButton"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="5dp"
+            android:layout_weight="2"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="@string/reply"
+            android:textSize="12sp"
+            android:maxLines="1"
+            app:icon="@drawable/ic_reply"
+            app:iconGravity="top"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/forwardButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
             android:text="@string/forward"
+            android:textSize="12sp"
+            android:maxLines="1"
             app:icon="@drawable/ic_forward"
+            app:iconGravity="top"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
     </LinearLayout>

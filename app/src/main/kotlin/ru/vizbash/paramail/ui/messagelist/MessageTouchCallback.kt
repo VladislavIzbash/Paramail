@@ -15,6 +15,8 @@ class MessageTouchCallback(private val root: View) : ItemTouchHelper.SimpleCallb
     0,
     ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT,
 ) {
+    var swipeStateListener: (Boolean) -> Unit = {}
+
     private val archiveIcon = ResourcesCompat.getDrawable(
         root.context.resources,
         R.drawable.ic_archive,
@@ -118,5 +120,9 @@ class MessageTouchCallback(private val root: View) : ItemTouchHelper.SimpleCallb
 
         c.restore()
         super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+    }
+
+    override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+        swipeStateListener(actionState == ItemTouchHelper.ACTION_STATE_SWIPE)
     }
 }

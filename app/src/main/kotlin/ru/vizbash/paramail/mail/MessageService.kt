@@ -10,7 +10,6 @@ import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.entity.MailAccount
 import ru.vizbash.paramail.storage.message.Message
-import ru.vizbash.paramail.storage.message.MessagePagingKey
 import ru.vizbash.paramail.storage.message.MessagePart
 import javax.mail.Address
 import javax.mail.Flags
@@ -39,10 +38,8 @@ class MessageService(
         return store!!
     }
 
-    private fun fetchMessagePage(folder: IMAPFolder, pageNum: Int, pageSize: Int): List<Message> {
-        val offset = pageNum * pageSize
-        val msgCount = folder.messageCount
-        return folder.getMessages(msgCount - offset - pageSize + 1, msgCount - offset)
+    private fun fetchMessages(folder: IMAPFolder, startNum: Int, count: Int): List<Message> {
+        return folder.getMessages(startNum - count + 1, startNum)
             .filter { it.allRecipients != null && it.subject != null }
             .reversed()
             .map {
@@ -80,48 +77,51 @@ class MessageService(
                 loadType: LoadType,
                 state: PagingState<Int, Message>,
             ): MediatorResult = withContext(Dispatchers.IO) {
-                val pageNum = when (loadType) {
-                    LoadType.REFRESH -> {
-                        val currentItem = state.anchorPosition?.let {
-                            state.closestItemToPosition(it)
-                        }
-                        val pagingKey = currentItem?.let {
-                            db.messagePagingDao().getPagingKeyById(it.id)
-                        }
-                        pagingKey?.nextPage?.minus(1) ?: 0
-                    }
-                    LoadType.PREPEND -> return@withContext MediatorResult.Success(true)
-                    LoadType.APPEND -> {
-                        val pagingKey = state.lastItemOrNull()?.let {
-                            db.messagePagingDao().getPagingKeyById(it.id)!!
-                        }
-                        pagingKey?.nextPage ?: return@withContext MediatorResult.Success(true)
-                    }
-                }
-
-                val pageSize = state.config.pageSize
-
-                Log.d(TAG, "loading $pageSize messages starting from page $pageNum")
-
                 try {
                     val folder = connectStore().getFolder("INBOX").apply {
                         open(Folder.READ_ONLY)
                     }
 
-                    val reachedEnd = pageNum + pageSize >= folder.messageCount
+                    val startNum = when (loadType) {
+                        LoadType.REFRESH -> {
+                            folder.messageCount
+    //                        val currentItem = state.anchorPosition?.let {
+    //                            state.closestItemToPosition(it)
+    //                        }
+    //                        val pagingKey = currentItem?.let {
+    //                            db.messagePagingDao().getPagingKeyById(it.id)
+    //                        }
+    //                        pagingKey?.nextPage?.minus(1) ?: 0
+
+                        }
+                        LoadType.PREPEND -> return@withContext MediatorResult.Success(true)
+                        LoadType.APPEND -> {
+//                            val pagingKey = state.lastItemOrNull()?.let {
+//                                db.messagePagingDao().getPagingKeyById(it.id)!!
+//                            }
+//                            pagingKey?.nextPage ?: return@withContext MediatorResult.Success(true)
+                            state.lastItemOrNull()?.msgnum ?: folder.messageCount
+                        }
+                    }
+
+                    val pageSize = state.config.pageSize
+
+                    Log.d(TAG, "loading $pageSize messages starting from page $startNum")
+
+                    val reachedEnd = startNum - pageSize <= 0
                     if (!reachedEnd) {
-                        val messages = fetchMessagePage(folder as IMAPFolder, pageNum, pageSize)
+                        val messages = fetchMessages(folder as IMAPFolder, startNum, pageSize)
                         db.withTransaction {
                             if (loadType == LoadType.REFRESH) {
-                                db.messagePagingDao().clearPagingKeys()
+//                                db.messagePagingDao().clearPagingKeys()
                                 db.messageDao().clearAll()
                             }
 
                             val ids = db.messageDao().insertAll(messages)
-                            val pagingKeys = ids.map {
-                                MessagePagingKey(msg_id = it.toInt(), nextPage = pageNum + 1)
-                            }
-                            db.messagePagingDao().insertPagingKeys(pagingKeys)
+//                            val pagingKeys = ids.map {
+//                                MessagePagingKey(msg_id = it.toInt(), nextPage = startNum + 1)
+//                            }
+//                            db.messagePagingDao().insertPagingKeys(pagingKeys)
                         }
                     }
 

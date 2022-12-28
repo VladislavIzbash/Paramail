@@ -16,6 +16,7 @@ import android.webkit.WebViewClient
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -104,7 +105,8 @@ class MessageViewFragment : Fragment() {
     private fun inflateTextPart(part: MessagePart) {
         val textView = TextView(requireContext()).apply {
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            text = part.content.toString()
+            text = part.content.toString(Charsets.UTF_8)
+            setPadding(resources.getDimension(R.dimen.plain_text_content_padding).toInt())
         }
         ui.bodyContentView.addView(textView)
     }

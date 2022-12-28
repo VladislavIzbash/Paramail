@@ -3,4 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="ru.vizbash.paramail.ui.MainActivity">
 
+    <item
+        android:title="@string/search_messages"
+        android:icon="@drawable/ic_search"
+        app:showAsAction="collapseActionView|always"
+        app:actionViewClass="androidx.appcompat.widget.SearchView" />
+
 </menu>
