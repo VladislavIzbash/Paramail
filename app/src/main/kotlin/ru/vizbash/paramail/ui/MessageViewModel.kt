@@ -22,7 +22,7 @@ class MessageViewModel @Inject constructor(
         val msgId = savedState.get<Int>(MessageViewFragment.ARG_MESSAGE_ID)!!
         messageService.await().getById(msgId)!!
     }
-    val bodyParts = viewModelScope.async {
-        messageService.await().getMessageBody(message.await())
+    val messageBody = viewModelScope.async {
+        messageService.await().getTextBody(message.await())
     }
 }

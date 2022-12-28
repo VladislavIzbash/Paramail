@@ -13,8 +13,8 @@ import androidx.room.PrimaryKey
             parentColumns = ["id"],
             childColumns = ["msg_id"],
             onDelete = ForeignKey.CASCADE,
-        )
-    ]
+        ),
+    ],
 )
 data class MessageBody(
     @ColumnInfo(name = "msg_id") @PrimaryKey(autoGenerate = false) val msg_id: Int,

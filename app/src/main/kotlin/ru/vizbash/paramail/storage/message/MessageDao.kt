@@ -15,17 +15,17 @@ interface MessageDao {
     @Query("DELETE FROM messages")
     suspend fun clearAll()
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(messages: List<Message>): List<Long>
 
     @Update
     suspend fun update(message: Message)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBodyParts(parts: List<MessagePart>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertBody(body: MessageBody)
 
-    @Query("SELECT * FROM message_parts WHERE message_id = :messageId")
-    suspend fun getBodyParts(messageId: Int): List<MessagePart>
+    @Query("SELECT * FROM message_bodies WHERE msg_id = :messageId")
+    suspend fun getMessageBody(messageId: Int): MessageBody?
 
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getById(id: Int): Message?

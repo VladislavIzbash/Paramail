@@ -50,9 +50,7 @@ class MessageListFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        ui.messageList.adapter =
-            messageAdapter.withLoadStateHeaderAndFooter(MessageLoadStateAdapter(),
-                MessageLoadStateAdapter())
+        ui.messageList.adapter = messageAdapter.withLoadStateFooter(MessageLoadStateAdapter())
         ui.messageList.addItemDecoration(DividerItemDecoration(
             requireContext(),
             DividerItemDecoration.VERTICAL,
@@ -65,6 +63,7 @@ class MessageListFragment : Fragment() {
         ItemTouchHelper(touchCallback).attachToRecyclerView(ui.messageList)
 
         ui.root.setOnRefreshListener {
+            ui.root.isRefreshing = true
             messageAdapter.refresh()
         }
 
@@ -96,8 +95,7 @@ class MessageListFragment : Fragment() {
                 MessageViewFragment.ARG_ACCOUNT_ID to model.accountId,
                 MessageViewFragment.ARG_MESSAGE_ID to msg.id,
             )
-            findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment,
-                args)
+            findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment, args)
         }
     }
 

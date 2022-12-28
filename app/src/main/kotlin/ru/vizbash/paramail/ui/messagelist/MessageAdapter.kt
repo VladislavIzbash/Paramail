@@ -3,6 +3,7 @@ package ru.vizbash.paramail.ui.messagelist
 import android.annotation.SuppressLint
 import android.graphics.Typeface
 import android.text.format.DateFormat
+import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -30,13 +31,17 @@ class MessageAdapter : PagingDataAdapter<Message, MessageAdapter.ViewHolder>(DIF
         private val ui = ItemMessageBinding.bind(view)
 
         private val timeFormat = DateFormat.getTimeFormat(view.context)
-        private val dateFormat = DateFormat.getDateFormat(view.context)
+        private val dateFormat = DateFormat.getMediumDateFormat(view.context)
 
         fun bind(message: Message) {
             ui.mailSubject.text = message.subject
             ui.mailFrom.text = message.from
             @SuppressLint("SetTextI18n")
-            ui.mailDate.text = "${dateFormat.format(message.date)}\n${timeFormat.format(message.date)}"
+            ui.mailDate.text = if (DateUtils.isToday(message.date.time)) {
+                timeFormat.format(message.date)
+            } else {
+                dateFormat.format(message.date)
+            }
             ui.mailSubject.typeface = if (message.isUnread) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
 
             ui.root.setOnClickListener { onMessageClickListener(message) }

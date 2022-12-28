@@ -13,6 +13,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.ArrayAdapter
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -24,7 +25,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentMessageViewBinding
-import ru.vizbash.paramail.storage.message.MessagePart
+import ru.vizbash.paramail.storage.message.MessageBody
 
 
 @AndroidEntryPoint
@@ -67,7 +68,7 @@ class MessageViewFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val timeFormat = DateFormat.getTimeFormat(view.context)
-        val dateFormat = DateFormat.getDateFormat(view.context)
+        val dateFormat = DateFormat.getMediumDateFormat(view.context)
 
         viewLifecycleOwner.lifecycleScope.launch {
             val msg = model.message.await()
@@ -76,23 +77,22 @@ class MessageViewFragment : Fragment() {
 
             ui.from.text = msg.from
             @SuppressLint("SetTextI18n")
-            ui.date.text = "${dateFormat.format(msg.date)} ${timeFormat.format(msg.date)}"
+            ui.date.text = "${dateFormat.format(msg.date)}\n${timeFormat.format(msg.date)}"
             ui.recipients.text = msg.recipients.joinToString(", ")
 
-            val bodyParts = model.bodyParts.await()
-            val part = bodyParts.find { it.mime.startsWith("text/") }
-            if (part != null) {
-                if (part.mime.startsWith("text/plain")) {
-                    inflateTextPart(part)
-                } else if (part.mime.startsWith("text/html")) {
-                    inflateHtmlPart(part)
+            val body = model.messageBody.await()
+            if (body != null) {
+                if (body.mime.startsWith("text/plain")) {
+                    inflateTextBody(body)
+                } else if (body.mime.startsWith("text/html")) {
+                    inflateHtmlBody(body)
                 }
             } else {
                 val textView = TextView(requireContext()).apply {
                     layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     val marginTop = resources.getDimension(R.dimen.message_no_contents_margin_top).toInt()
                     setPadding(0, marginTop, 0, 0)
-                    setText(R.string.message_no_content)
+                    setText(R.string.failed_to_show_message)
                     textAlignment = TextView.TEXT_ALIGNMENT_CENTER
                 }
                 ui.bodyContentView.addView(textView)
@@ -102,16 +102,16 @@ class MessageViewFragment : Fragment() {
         }
     }
 
-    private fun inflateTextPart(part: MessagePart) {
+    private fun inflateTextBody(body: MessageBody) {
         val textView = TextView(requireContext()).apply {
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            text = part.content.toString(Charsets.UTF_8)
+            text = body.content.toString(Charsets.UTF_8)
             setPadding(resources.getDimension(R.dimen.plain_text_content_padding).toInt())
         }
         ui.bodyContentView.addView(textView)
     }
 
-    private fun inflateHtmlPart(part: MessagePart) {
+    private fun inflateHtmlBody(body: MessageBody) {
         bodyWebView = WebView(requireContext()).apply {
             layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
             webViewClient = MessageWebViewClient(requireContext())
@@ -121,8 +121,8 @@ class MessageViewFragment : Fragment() {
         ui.bodyContentView.addView(bodyWebView)
         bodyWebView!!.loadDataWithBaseURL(
             "email://",
-            part.content.toString(Charsets.UTF_8),
-            part.mime,
+            body.content.toString(Charsets.UTF_8),
+            body.mime,
             null,
             null,
         )

@@ -28,7 +28,7 @@
     <string name="reply">Ответить</string>
     <string name="loading">Загрузка...</string>
     <string name="reply_all">Ответить всем</string>
-    <string name="message_no_content">Сообщение не содержит текста</string>
+    <string name="failed_to_show_message">Не удалось отобразить сообщение</string>
     <string name="search_messages">Поиск по сообщениям</string>
     <string name="sort">Сортировать</string>
 </resources>

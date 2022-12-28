@@ -10,8 +10,7 @@ import ru.vizbash.paramail.storage.message.*
     entities = [
         MailAccount::class,
         Message::class,
-        MessagePart::class,
-        MessagePagingKey::class,
+        MessageBody::class,
     ],
     version = 5,
 )
@@ -20,6 +19,4 @@ abstract class MailDatabase: RoomDatabase() {
     abstract fun accountDao(): AccountDao
 
     abstract fun messageDao(): MessageDao
-
-    abstract fun messagePagingDao(): MessagePagingDao
 }

@@ -10,8 +10,9 @@ import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.entity.MailAccount
 import ru.vizbash.paramail.storage.message.Message
-import ru.vizbash.paramail.storage.message.MessagePart
+import ru.vizbash.paramail.storage.message.MessageBody
 import javax.mail.Address
+import javax.mail.BodyPart
 import javax.mail.Flags
 import javax.mail.Folder
 import javax.mail.Message.RecipientType
@@ -50,7 +51,14 @@ class MessageService(
                     msgnum = it.messageNumber,
                     accountId = account.id,
                     subject = it.subject,
-                    recipients = it.getRecipients(RecipientType.TO).map(Address::toString),
+                    recipients = it.getRecipients(RecipientType.TO).map {
+                        val addr = it as InternetAddress
+                        if (addr.personal.isEmpty()) {
+                            addr.address
+                        } else {
+                            "${addr.personal} <${addr.address}>"
+                        }
+                    },
                     from = from.address,
                     date = it.receivedDate,
                     isUnread = !it.isSet(Flags.Flag.SEEN),
@@ -83,25 +91,9 @@ class MessageService(
                     }
 
                     val startNum = when (loadType) {
-                        LoadType.REFRESH -> {
-                            folder.messageCount
-    //                        val currentItem = state.anchorPosition?.let {
-    //                            state.closestItemToPosition(it)
-    //                        }
-    //                        val pagingKey = currentItem?.let {
-    //                            db.messagePagingDao().getPagingKeyById(it.id)
-    //                        }
-    //                        pagingKey?.nextPage?.minus(1) ?: 0
-
-                        }
+                        LoadType.REFRESH -> folder.messageCount
                         LoadType.PREPEND -> return@withContext MediatorResult.Success(true)
-                        LoadType.APPEND -> {
-//                            val pagingKey = state.lastItemOrNull()?.let {
-//                                db.messagePagingDao().getPagingKeyById(it.id)!!
-//                            }
-//                            pagingKey?.nextPage ?: return@withContext MediatorResult.Success(true)
-                            state.lastItemOrNull()?.msgnum ?: folder.messageCount
-                        }
+                        LoadType.APPEND -> state.lastItemOrNull()?.msgnum ?: folder.messageCount
                     }
 
                     val pageSize = state.config.pageSize
@@ -113,15 +105,10 @@ class MessageService(
                         val messages = fetchMessages(folder as IMAPFolder, startNum, pageSize)
                         db.withTransaction {
                             if (loadType == LoadType.REFRESH) {
-//                                db.messagePagingDao().clearPagingKeys()
                                 db.messageDao().clearAll()
                             }
 
-                            val ids = db.messageDao().insertAll(messages)
-//                            val pagingKeys = ids.map {
-//                                MessagePagingKey(msg_id = it.toInt(), nextPage = startNum + 1)
-//                            }
-//                            db.messagePagingDao().insertPagingKeys(pagingKeys)
+                           db.messageDao().insertAll(messages)
                         }
                     }
 
@@ -135,61 +122,89 @@ class MessageService(
 
     suspend fun getById(messageId: Int) = db.messageDao().getById(messageId)
 
-    suspend fun getMessageBody(message: Message): List<MessagePart> {
-        return db.messageDao().getBodyParts(message.id).ifEmpty {
-            withContext(Dispatchers.IO) {
+    suspend fun getTextBody(message: Message): MessageBody? {
+        return db.messageDao().getMessageBody(message.id)
+            ?: withContext(Dispatchers.IO) {
                 val folder = connectStore().getFolder("INBOX").apply {
                     open(Folder.READ_ONLY)
                 }
                 val remoteMsg = folder.getMessage(message.msgnum)
 
-                val parts = fetchParts(remoteMsg, message.id)
-                db.messageDao().insertBodyParts(parts)
-                parts
+                val (content, mime) = extractTextBody(remoteMsg) ?: return@withContext null
+                val body = MessageBody(message.id, content, mime)
+
+                db.messageDao().insertBody(body)
+                body
             }
-        }
     }
 
-    private fun fetchParts(msg: javax.mail.Message, msgId: Int): List<MessagePart> {
+    private fun extractTextBody(msg: javax.mail.Message): Pair<ByteArray, String>? {
         return when {
-            msg.contentType.startsWith("multipart/mixed") -> {
-                fetchMixed(msg.content as MimeMultipart, msgId)
+            msg.contentType.startsWith("text/") -> {
+                Pair(msg.inputStream.readBytes(), msg.contentType)
             }
-            msg.contentType.startsWith("multipart/alternative") -> {
-                 listOf(fetchAlternative(msg.content as MimeMultipart, msgId))
+            msg.contentType.startsWith("multipart/") -> {
+                findTextPartInMultipart(msg.content as MimeMultipart, msg.contentType)?.let {
+                    Pair(it.inputStream.readBytes(), it.contentType)
+                }
             }
-            else -> listOf(MessagePart(
-                id = 0,
-                messageId = msgId,
-                content = msg.inputStream.readBytes(),
-                mime = msg.contentType,
-            ))
+            else -> null
         }
     }
 
-    private fun fetchMixed(multipart: MimeMultipart, msgId: Int): List<MessagePart> {
-        return (0 until multipart.count).map {
-            val part = multipart.getBodyPart(it)
-            if (part.contentType.startsWith("multipart/alternative")) {
-                fetchAlternative(part.content as MimeMultipart, msgId)
-            } else {
-                MessagePart(
-                    id = 0,
-                    messageId = msgId,
-                    content = part.inputStream.readBytes(),
-                    mime = part.contentType,
-                )
+    private fun findTextPart(part: BodyPart): BodyPart? {
+        return when {
+            part.contentType.startsWith("text/") -> part
+            part.contentType.startsWith("multipart/") -> {
+                findTextPartInMultipart(part.content as MimeMultipart, part.contentType)
             }
+            else -> null
         }
     }
 
-    private fun fetchAlternative(multipart: MimeMultipart, msgId: Int): MessagePart {
-        val last = multipart.getBodyPart(multipart.count - 1)
-        return MessagePart(
-            id = 0,
-            messageId = msgId,
-            content = last.inputStream.readBytes(),
-            mime = last.contentType,
-        )
+    private fun findTextPartInMultipart(multipart: MimeMultipart, contentType: String): BodyPart? {
+        return when {
+            contentType.startsWith("multipart/mixed") -> {
+                findTextPartInMixed(multipart)
+            }
+            contentType.startsWith("multipart/related") -> {
+                findTextPartInRelated(multipart)
+            }
+            contentType.startsWith("multipart/alternative") -> {
+                findTextPartInAlternative(multipart)
+            }
+            else -> null
+        }
+    }
+
+    private fun findTextPartInMixed(mixed: MimeMultipart): BodyPart? {
+        for (i in 0 until mixed.count) {
+            val part = mixed.getBodyPart(i)
+            if (
+                part.contentType.startsWith("multipart/mixed") ||
+                part.contentType.startsWith("multipart/alternative") ||
+                part.contentType.startsWith("multipart/related") ||
+                part.contentType.startsWith("text/")
+            ) {
+                return findTextPart(part)
+            }
+        }
+        return null // TODO: attachments
+    }
+
+    private fun findTextPartInAlternative(alternative: MimeMultipart): BodyPart? {
+        return if (alternative.count > 0) {
+             findTextPart(alternative.getBodyPart(alternative.count - 1))
+        } else {
+            null
+        }
+    }
+
+    private fun findTextPartInRelated(related: MimeMultipart): BodyPart? {
+        return if (related.count > 0) {
+            findTextPart(related.getBodyPart(0))
+        } else {
+            null
+        }
     }
 }
