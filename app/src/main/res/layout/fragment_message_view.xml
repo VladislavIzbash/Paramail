@@ -6,19 +6,23 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context=".ui.MessageViewFragment">
+    tools:context=".ui.messageview.MessageViewFragment">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="5dp">
+        android:padding="5dp"
+        android:background="?selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true">
 
         <TextView
             android:id="@+id/from"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/date"
             tools:text="Отправитель"
             android:textSize="16sp"
             android:maxLines="1"
@@ -26,10 +30,11 @@
 
         <TextView
             android:id="@+id/recipients"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@id/from"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/date"
             tools:text="Получатель1, Получатель2..."
             android:ellipsize="end"
             android:maxLines="1" />
@@ -50,19 +55,34 @@
         android:layout_width="match_parent"
         android:layout_height="2dp" />
 
+    <com.google.android.flexbox.FlexboxLayout
+        android:id="@+id/attachmentLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="3dp"
+        app:flexWrap="wrap">
+
+    </com.google.android.flexbox.FlexboxLayout>
+
+    <com.google.android.material.divider.MaterialDivider
+        android:id="@+id/attachment_divider"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="2dp" />
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
         <ProgressBar
-            android:id="@+id/bodyLoadProgress"
+            android:id="@+id/body_load_progress"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"/>
 
         <ScrollView
-            android:id="@+id/bodyContentView"
+            android:id="@+id/body_content_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
@@ -70,52 +90,41 @@
 
     </FrameLayout>
 
+    <com.google.android.material.divider.MaterialDivider
+        android:layout_width="match_parent"
+        android:layout_height="2dp" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/replyAllButton"
+            style="@style/Widget.Paramail.Button.MessageAction"
+            android:id="@+id/reply_all_button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="3"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
             android:text="@string/reply_all"
-            android:textSize="12sp"
-            android:maxLines="1"
-            app:icon="@drawable/ic_reply_all"
-            app:iconGravity="top"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            app:icon="@drawable/ic_reply_all" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/replyButton"
+            style="@style/Widget.Paramail.Button.MessageAction"
+            android:id="@+id/reply_button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="2"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
             android:text="@string/reply"
-            android:textSize="12sp"
-            android:maxLines="1"
-            app:icon="@drawable/ic_reply"
-            app:iconGravity="top"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            app:icon="@drawable/ic_reply" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/forwardButton"
+            style="@style/Widget.Paramail.Button.MessageAction"
+            android:id="@+id/forward_button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="2"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
             android:text="@string/forward"
-            android:textSize="12sp"
-            android:maxLines="1"
-            app:icon="@drawable/ic_forward"
-            app:iconGravity="top"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            app:icon="@drawable/ic_forward" />
 
     </LinearLayout>
 

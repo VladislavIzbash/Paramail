@@ -18,17 +18,13 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentMessageListBinding
 import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.ui.MainViewModel
-import ru.vizbash.paramail.ui.MessageViewFragment
+import ru.vizbash.paramail.ui.messageview.MessageViewFragment
 import ru.vizbash.paramail.ui.SearchState
 
 @AndroidEntryPoint
@@ -105,9 +101,10 @@ class MessageListFragment : Fragment() {
         val messageAdapter = PagingMessageAdapter()
         messageAdapter.onMessageClickListener = this::onMessageClicked
         messageAdapter.addLoadStateListener { loadState ->
+            ui.root.isRefreshing = loadState.refresh == LoadState.Loading
+
             when (loadState.refresh) {
                 is LoadState.NotLoading -> {
-                    ui.root.isRefreshing = false
                     ui.loadingProgress.isVisible = false
                 }
                 is LoadState.Loading -> {

@@ -27,6 +27,12 @@ interface MessageDao {
     @Query("SELECT * FROM message_bodies WHERE msg_id = :messageId")
     suspend fun getMessageBody(messageId: Int): MessageBody?
 
+    @Insert
+    suspend fun insertAttachments(attachments: List<Attachment>)
+
+    @Query("SELECT * FROM attachments WHERE msg_id = :messageId")
+    suspend fun getAttachments(messageId: Int): List<Attachment>
+
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getById(id: Int): Message?
 

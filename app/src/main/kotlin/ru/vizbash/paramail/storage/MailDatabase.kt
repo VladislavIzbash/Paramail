@@ -11,8 +11,9 @@ import ru.vizbash.paramail.storage.message.*
         MailAccount::class,
         Message::class,
         MessageBody::class,
+        Attachment::class,
     ],
-    version = 5,
+    version = 6,
 )
 @TypeConverters(Converters::class)
 abstract class MailDatabase: RoomDatabase() {

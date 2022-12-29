@@ -1,6 +1,8 @@
 package ru.vizbash.paramail.mail
 
+import android.content.Context
 import com.sun.mail.imap.IMAPStore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.storage.AccountDao
@@ -17,6 +19,7 @@ import javax.mail.Transport
 @Singleton
 class MailService @Inject constructor(
     private val db: MailDatabase,
+    @ApplicationContext private val context: Context,
 ) {
     private val messageServices = mutableMapOf<Int, MessageService>()
 
@@ -71,7 +74,7 @@ class MailService @Inject constructor(
     suspend fun getMessageService(accountId: Int): MessageService {
         return messageServices.getOrPut(accountId) {
             val account = db.accountDao().getById(accountId)!!
-            MessageService(account, db, this)
+            MessageService(account, db, this, context)
         }
     }
 }

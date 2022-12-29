@@ -42,7 +42,7 @@
 
     <fragment
         android:id="@+id/messageViewFragment"
-        android:name="ru.vizbash.paramail.ui.MessageViewFragment"
+        android:name="ru.vizbash.paramail.ui.messageview.MessageViewFragment"
         android:label="fragment_message_view"
         tools:layout="@layout/fragment_message_view" />
 

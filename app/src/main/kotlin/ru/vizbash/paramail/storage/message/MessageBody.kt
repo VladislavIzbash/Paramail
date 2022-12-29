@@ -17,7 +17,7 @@ import androidx.room.PrimaryKey
     ],
 )
 data class MessageBody(
-    @ColumnInfo(name = "msg_id") @PrimaryKey(autoGenerate = false) val msg_id: Int,
+    @ColumnInfo(name = "msg_id") @PrimaryKey(autoGenerate = false) val msgId: Int,
     @ColumnInfo(name = "content") val content: ByteArray,
     @ColumnInfo(name = "mime") val mime: String,
 ) {
@@ -27,14 +27,14 @@ data class MessageBody(
 
         other as MessageBody
 
-        if (msg_id != other.msg_id) return false
+        if (msgId != other.msgId) return false
         if (mime != other.mime) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = msg_id
+        var result = msgId
         result = 31 * result + mime.hashCode()
         return result
     }

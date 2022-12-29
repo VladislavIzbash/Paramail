@@ -1,8 +1,9 @@
-package ru.vizbash.paramail.ui
+package ru.vizbash.paramail.ui.messageview
 
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.text.format.DateFormat
 import android.view.LayoutInflater
@@ -13,8 +14,8 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.ArrayAdapter
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
@@ -24,8 +25,13 @@ import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
+import ru.vizbash.paramail.databinding.AttachmentBinding
 import ru.vizbash.paramail.databinding.FragmentMessageViewBinding
+import ru.vizbash.paramail.storage.message.Attachment
 import ru.vizbash.paramail.storage.message.MessageBody
+import java.text.DecimalFormat
+import kotlin.math.log10
+import kotlin.math.pow
 
 
 @AndroidEntryPoint
@@ -80,7 +86,7 @@ class MessageViewFragment : Fragment() {
             ui.date.text = "${dateFormat.format(msg.date)}\n${timeFormat.format(msg.date)}"
             ui.recipients.text = msg.recipients.joinToString(", ")
 
-            val body = model.messageBody.await()
+            val (body, attachments) = model.messageBody.await()
             if (body != null) {
                 if (body.mime.startsWith("text/plain")) {
                     inflateTextBody(body)
@@ -98,7 +104,31 @@ class MessageViewFragment : Fragment() {
                 ui.bodyContentView.addView(textView)
             }
 
+            inflateAttachments(attachments)
+
             ui.bodyLoadProgress.isVisible = false
+        }
+    }
+
+    private fun inflateAttachments(attachments: List<Attachment>) {
+        ui.attachmentDivider.isVisible = attachments.isNotEmpty()
+
+        for (attachment in attachments) {
+            val binding = AttachmentBinding.inflate(layoutInflater, ui.attachmentLayout, true)
+
+            binding.fileName.text = attachment.fileName
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val info = requireContext().contentResolver.getTypeInfo(attachment.mime)
+                binding.fileTypeIcon.setImageIcon(info.icon)
+            } else {
+                binding.fileTypeIcon.setImageResource(R.drawable.ic_attachment)
+            }
+            binding.fileSize.text = formatSize(attachment.size)
+
+            binding.root.setOnClickListener {
+                val dialog = AttachmentDialogFragment(attachment, model)
+                dialog.show(parentFragmentManager, "attachment")
+            }
         }
     }
 
@@ -126,6 +156,14 @@ class MessageViewFragment : Fragment() {
             null,
             null,
         )
+    }
+
+    private fun formatSize(size: Int): String {
+        val units = resources.getStringArray(R.array.size_units)
+
+        val digitGroup = (log10(size.toDouble()) / log10(1024F)).toInt()
+        val num = DecimalFormat("#,##0.#").format(size / 1024.0.pow(digitGroup))
+        return "$num ${units[digitGroup]}"
     }
 
     class MessageWebViewClient(private val ctx: Context) : WebViewClient() {

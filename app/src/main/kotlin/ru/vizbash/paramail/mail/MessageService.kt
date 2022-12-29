@@ -1,17 +1,26 @@
 package ru.vizbash.paramail.mail
 
+import android.content.Context
+import android.net.Uri
 import android.util.Log
+import androidx.core.content.FileProvider
 import androidx.paging.*
 import androidx.room.withTransaction
 import com.sun.mail.iap.CommandFailedException
 import com.sun.mail.imap.IMAPFolder
 import com.sun.mail.imap.IMAPStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.entity.MailAccount
+import ru.vizbash.paramail.storage.message.Attachment
 import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.storage.message.MessageBody
+import java.io.File
+import java.io.FileOutputStream
+import java.io.FileWriter
 import javax.mail.BodyPart
 import javax.mail.Flags
 import javax.mail.Folder
@@ -19,17 +28,21 @@ import javax.mail.Message.RecipientType
 import javax.mail.MessagingException
 import javax.mail.internet.InternetAddress
 import javax.mail.internet.MimeMultipart
+import javax.mail.internet.MimeUtility
 import javax.mail.search.BodyTerm
 import javax.mail.search.FromStringTerm
 import javax.mail.search.OrTerm
 import javax.mail.search.SubjectTerm
 
 private const val TAG = "MessageService"
+private const val DOWNLOAD_BLOCK_SIZE = 16000
+private const val ATTACHMENTS_DIR = "attachments"
 
 class MessageService(
     private val account: MailAccount,
     private val db: MailDatabase,
     private val mailService: MailService,
+    private val context: Context,
 ) {
     private var store: IMAPStore? = null
 
@@ -136,32 +149,117 @@ class MessageService(
 
     suspend fun getById(messageId: Int) = db.messageDao().getById(messageId)
 
-    suspend fun getTextBody(message: Message): MessageBody? {
-        return db.messageDao().getMessageBody(message.id)
-            ?: withContext(Dispatchers.IO) {
+    fun getAttachmentUri(attachment: Attachment): Uri? {
+        val file = File("${context.filesDir}/$ATTACHMENTS_DIR/${attachment.fileName})")
+        if (!file.exists()) {
+            return null
+        }
+
+        return FileProvider.getUriForFile(
+            context,
+            "ru.vizbash.paramail.attachmentprovider",
+            file,
+        )
+    }
+
+    suspend fun downloadAttachment(
+        attachment: Attachment,
+        progressCb: (Float) -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        val message = db.messageDao().getById(attachment.msgId)!!
+        val remoteMessage = openFolder().getMessage(message.msgNum)
+        val mixed = remoteMessage.content as MimeMultipart
+
+        val part = (1 until mixed.count)
+            .map(mixed::getBodyPart)
+            .find { MimeUtility.decodeText(it.fileName) == attachment.fileName }!!
+        val input = part.inputStream
+
+        File("${context.filesDir}/$ATTACHMENTS_DIR").mkdir()
+        val file = File("${context.filesDir}/$ATTACHMENTS_DIR/${attachment.fileName})")
+
+        try {
+            file.outputStream().use { output ->
+                val buf = ByteArray(DOWNLOAD_BLOCK_SIZE)
+                var totalRead = 0
+
+                progressCb(0F)
+
+                while (true) {
+                    yield()
+
+                    val read = input.read(buf)
+                    if (read <= 0) {
+                        progressCb(1.0F)
+                        break
+                    }
+
+                    output.write(buf, 0, read)
+                    totalRead += read
+                    progressCb(totalRead.toFloat() / part.size.toFloat())
+                }
+            }
+        } catch (e: CancellationException) {
+            file.delete()
+        }
+    }
+
+    suspend fun getMessageBodyWithAttachments(message: Message): Pair<MessageBody?, List<Attachment>> {
+        val storedBody = db.messageDao().getMessageBody(message.id)
+        if (storedBody != null) {
+            val attachments = db.messageDao().getAttachments(message.id)
+            return Pair(storedBody, attachments)
+        } else {
+            return withContext(Dispatchers.IO) {
                 val folder = openFolder()
                 val remoteMsg = folder.getMessage(message.msgNum)
 
-                val (content, mime) = extractTextBody(remoteMsg) ?: return@withContext null
-                val body = MessageBody(message.id, content, mime)
+                val attachments = extractAttachments(remoteMsg, message.id)
+                val body = extractTextBody(remoteMsg, message.id)
+                    ?: return@withContext Pair(null, attachments)
 
-                db.messageDao().insertBody(body)
-                body
+                db.withTransaction {
+                    db.messageDao().insertBody(body)
+                    db.messageDao().insertAttachments(attachments)
+                }
+                Pair(body, attachments)
+            }
+        }
+    }
+
+    private fun extractAttachments(msg: javax.mail.Message, msgId: Int): List<Attachment> {
+        if (!msg.contentType.startsWith("multipart/mixed")) {
+            return listOf()
+        }
+
+        val multipart = msg.content as MimeMultipart
+        return (1 until multipart.count)
+            .map(multipart::getBodyPart)
+            .map {
+                Attachment(
+                    id = 0,
+                    msgId = msgId,
+                    fileName = MimeUtility.decodeText(it.fileName),
+                    mime = it.contentType,
+                    size = it.size,
+                )
             }
     }
 
-    private fun extractTextBody(msg: javax.mail.Message): Pair<ByteArray, String>? {
-        return when {
+    private fun extractTextBody(msg: javax.mail.Message, msgId: Int): MessageBody? {
+        val (content, contentType) = when {
             msg.contentType.startsWith("text/") -> {
                 Pair(msg.inputStream.readBytes(), msg.contentType)
             }
             msg.contentType.startsWith("multipart/") -> {
                 findTextPartInMultipart(msg.content as MimeMultipart, msg.contentType)?.let {
                     Pair(it.inputStream.readBytes(), it.contentType)
-                }
+                } ?: return null
             }
-            else -> null
+            else -> return null
         }
+
+        return MessageBody(msgId, content, contentType)
     }
 
     private fun findTextPart(part: BodyPart): BodyPart? {
@@ -176,47 +274,13 @@ class MessageService(
 
     private fun findTextPartInMultipart(multipart: MimeMultipart, contentType: String): BodyPart? {
         return when {
-            contentType.startsWith("multipart/mixed") -> {
-                findTextPartInMixed(multipart)
-            }
-            contentType.startsWith("multipart/related") -> {
-                findTextPartInRelated(multipart)
+            contentType.startsWith("multipart/mixed") || contentType.startsWith("multipart/related") -> {
+                findTextPart(multipart.getBodyPart(0))
             }
             contentType.startsWith("multipart/alternative") -> {
-                findTextPartInAlternative(multipart)
+                findTextPart(multipart.getBodyPart(multipart.count - 1))
             }
             else -> null
-        }
-    }
-
-    private fun findTextPartInMixed(mixed: MimeMultipart): BodyPart? {
-        for (i in 0 until mixed.count) {
-            val part = mixed.getBodyPart(i)
-            if (
-                part.contentType.startsWith("multipart/mixed") ||
-                part.contentType.startsWith("multipart/alternative") ||
-                part.contentType.startsWith("multipart/related") ||
-                part.contentType.startsWith("text/")
-            ) {
-                return findTextPart(part)
-            }
-        }
-        return null // TODO: attachments
-    }
-
-    private fun findTextPartInAlternative(alternative: MimeMultipart): BodyPart? {
-        return if (alternative.count > 0) {
-             findTextPart(alternative.getBodyPart(alternative.count - 1))
-        } else {
-            null
-        }
-    }
-
-    private fun findTextPartInRelated(related: MimeMultipart): BodyPart? {
-        return if (related.count > 0) {
-            findTextPart(related.getBodyPart(0))
-        } else {
-            null
         }
     }
 
