@@ -6,9 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.*
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -38,6 +36,17 @@ class MessageListFragment : Fragment() {
 
     private val model: MessageListModel by viewModels()
     private val mainModel: MainViewModel by activityViewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setFragmentResultListener(MessageViewFragment.RESULT_KEY) { _, bundle ->
+            if (bundle.getBoolean(MessageViewFragment.RESULT_ERROR_KEY)) {
+                Snackbar.make(ui.root, R.string.failed_to_load_message, Snackbar.LENGTH_SHORT)
+                    .show()
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -101,14 +110,26 @@ class MessageListFragment : Fragment() {
         val messageAdapter = PagingMessageAdapter()
         messageAdapter.onMessageClickListener = this::onMessageClicked
         messageAdapter.addLoadStateListener { loadState ->
-            ui.root.isRefreshing = loadState.refresh == LoadState.Loading
-
             when (loadState.refresh) {
                 is LoadState.NotLoading -> {
                     ui.loadingProgress.isVisible = false
+                    ui.root.isRefreshing = false
                 }
                 is LoadState.Loading -> {
                     ui.loadingProgress.isVisible = messageAdapter.itemCount == 0
+                    ui.root.isRefreshing = messageAdapter.itemCount != 0
+                }
+                is LoadState.Error -> {
+                    (loadState.refresh as LoadState.Error).error.printStackTrace()
+
+                    Snackbar.make(ui.root, R.string.error_loading_messages, Snackbar.LENGTH_LONG)
+                        .setAction(R.string.try_again) {
+                            messageAdapter.refresh()
+                        }
+                        .show()
+
+                    ui.loadingProgress.isVisible = false
+                    ui.root.isRefreshing = false
                 }
                 else -> {}
             }
@@ -123,7 +144,6 @@ class MessageListFragment : Fragment() {
 
         ui.loadingProgress.isVisible = false
         ui.root.setOnRefreshListener {
-            ui.root.isRefreshing = true
             messageAdapter.refresh()
         }
 

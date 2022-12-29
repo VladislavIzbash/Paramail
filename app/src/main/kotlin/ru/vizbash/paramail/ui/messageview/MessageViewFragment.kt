@@ -17,11 +17,14 @@ import android.webkit.WebViewClient
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.setFragmentResult
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
@@ -39,6 +42,9 @@ class MessageViewFragment : Fragment() {
     companion object {
         const val ARG_ACCOUNT_ID = "account_id"
         const val ARG_MESSAGE_ID = "messaage_id"
+
+        const val RESULT_KEY = "view_result"
+        const val RESULT_ERROR_KEY = "error"
     }
 
     private var _ui: FragmentMessageViewBinding? = null
@@ -76,17 +82,27 @@ class MessageViewFragment : Fragment() {
         val timeFormat = DateFormat.getTimeFormat(view.context)
         val dateFormat = DateFormat.getMediumDateFormat(view.context)
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            val msg = model.message.await()
+        val actionBar = (requireActivity() as AppCompatActivity).supportActionBar
+        actionBar?.title = "Загрузка..."
 
-            (requireActivity() as AppCompatActivity).supportActionBar?.title = msg.subject
+        viewLifecycleOwner.lifecycleScope.launch {
+            val msgRes = model.messageBody.await()
+            msgRes.onFailure {
+                it.printStackTrace()
+                setFragmentResult(RESULT_KEY, bundleOf(RESULT_ERROR_KEY to true))
+                findNavController().popBackStack()
+                return@launch
+            }
+            val (body, attachments) = msgRes.getOrNull()!!
+            val msg = model.message.await().getOrNull()!!
+
+            actionBar?.title = msg.subject
 
             ui.from.text = msg.from
             @SuppressLint("SetTextI18n")
             ui.date.text = "${dateFormat.format(msg.date)}\n${timeFormat.format(msg.date)}"
             ui.recipients.text = msg.recipients.joinToString(", ")
 
-            val (body, attachments) = model.messageBody.await()
             if (body != null) {
                 if (body.mime.startsWith("text/plain")) {
                     inflateTextBody(body)
@@ -94,20 +110,24 @@ class MessageViewFragment : Fragment() {
                     inflateHtmlBody(body)
                 }
             } else {
-                val textView = TextView(requireContext()).apply {
-                    layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                    val marginTop = resources.getDimension(R.dimen.message_no_contents_margin_top).toInt()
-                    setPadding(0, marginTop, 0, 0)
-                    setText(R.string.failed_to_show_message)
-                    textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-                }
-                ui.bodyContentView.addView(textView)
+                inflateError(getString(R.string.failed_to_show_message))
             }
 
             inflateAttachments(attachments)
 
             ui.bodyLoadProgress.isVisible = false
         }
+    }
+
+    private fun inflateError(error: String) {
+        val textView = TextView(requireContext()).apply {
+            layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            val marginTop = resources.getDimension(R.dimen.message_no_contents_margin_top).toInt()
+            setPadding(0, marginTop, 0, 0)
+            text = error
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+        }
+        ui.bodyContentView.addView(textView)
     }
 
     private fun inflateAttachments(attachments: List<Attachment>) {

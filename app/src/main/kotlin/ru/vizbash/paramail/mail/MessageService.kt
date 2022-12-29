@@ -8,9 +8,10 @@ import androidx.paging.*
 import androidx.room.withTransaction
 import com.sun.mail.iap.CommandFailedException
 import com.sun.mail.imap.IMAPFolder
-import com.sun.mail.imap.IMAPStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import ru.vizbash.paramail.storage.MailDatabase
@@ -19,8 +20,6 @@ import ru.vizbash.paramail.storage.message.Attachment
 import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.storage.message.MessageBody
 import java.io.File
-import java.io.FileOutputStream
-import java.io.FileWriter
 import javax.mail.BodyPart
 import javax.mail.Flags
 import javax.mail.Folder
@@ -44,22 +43,25 @@ class MessageService(
     private val mailService: MailService,
     private val context: Context,
 ) {
-    private var store: IMAPStore? = null
+    private val storeMutex = Mutex()
 
     val storedMessages: PagingSource<Int, Message>
         get() = db.messageDao().pageAll(account.id)
 
-    private suspend fun connectStore(): IMAPStore {
-        if (store == null || !store!!.isConnected) {
-            store = mailService.connectImap(account.props, account.imap)
-        }
-        return store!!
-    }
+    private suspend inline fun <R> useFolder(name: String, crossinline block: suspend (IMAPFolder) -> R): R {
+        return withContext(Dispatchers.IO) {
+            storeMutex.withLock {
+                mailService.connectImap(account.props, account.imap).use { store ->
+                    val folder = store.defaultFolder.getFolder(name).apply {
+                        open(Folder.READ_ONLY)
+                    }
+                    folder.use {
+                        block(it as IMAPFolder)
+                    }
+                }
 
-    private suspend fun openFolder(): IMAPFolder {
-        return connectStore().getFolder("INBOX").apply {
-            open(Folder.READ_ONLY)
-        } as IMAPFolder
+            }
+        }
     }
 
     private fun fetchMessages(folder: IMAPFolder, startNum: Int, count: Int): List<Message> {
@@ -99,49 +101,51 @@ class MessageService(
     val remoteMediator: RemoteMediator<Int, Message>
         get() = object : RemoteMediator<Int, Message>() {
 
-            override suspend fun initialize() = withContext(Dispatchers.IO) {
-                val hasNewMsgs = connectStore().defaultFolder.getFolder("INBOX").hasNewMessages()
-                val hasCachedMsgs = db.messageDao().getMessageCount() > 0
+            override suspend fun initialize(): InitializeAction {
+                return try {
+                    useFolder("INBOX") { folder ->
+                        val hasNewMsgs = folder.hasNewMessages()
+                        val hasCachedMsgs = db.messageDao().getMessageCount() > 0
 
-                if (!hasCachedMsgs || hasNewMsgs) {
+                        if (!hasCachedMsgs || hasNewMsgs) {
+                            InitializeAction.LAUNCH_INITIAL_REFRESH
+                        } else {
+                            InitializeAction.SKIP_INITIAL_REFRESH
+                        }
+                    }
+                } catch (e: MessagingException) {
                     InitializeAction.LAUNCH_INITIAL_REFRESH
-                } else {
-                    InitializeAction.SKIP_INITIAL_REFRESH
                 }
             }
 
             override suspend fun load(
                 loadType: LoadType,
                 state: PagingState<Int, Message>,
-            ): MediatorResult = withContext(Dispatchers.IO) {
-                try {
-                    val folder = openFolder()
+            ): MediatorResult {
+                return try {
+                    useFolder("INBOX") { folder ->
+                        val startNum = when (loadType) {
+                            LoadType.REFRESH -> folder.messageCount
+                            LoadType.PREPEND -> return@useFolder MediatorResult.Success(true)
+                            LoadType.APPEND -> state.lastItemOrNull()?.msgNum ?: folder.messageCount
+                        }
 
-                    val startNum = when (loadType) {
-                        LoadType.REFRESH -> folder.messageCount
-                        LoadType.PREPEND -> return@withContext MediatorResult.Success(true)
-                        LoadType.APPEND -> state.lastItemOrNull()?.msgNum ?: folder.messageCount
-                    }
+                        val pageSize = state.config.pageSize
 
-                    val pageSize = state.config.pageSize
+                        Log.d(TAG, "loading $pageSize messages starting from page $startNum")
 
-                    Log.d(TAG, "loading $pageSize messages starting from page $startNum")
-
-                    val reachedEnd = startNum - pageSize <= 0
-                    if (!reachedEnd) {
-                        val messages = fetchMessages(folder, startNum, pageSize)
-                        db.withTransaction {
+                        val reachedEnd = startNum - pageSize <= 0
+                        if (!reachedEnd) {
+                            val messages = fetchMessages(folder, startNum, pageSize)
                             if (loadType == LoadType.REFRESH) {
                                 db.messageDao().clearAll()
                             }
-
-                           db.messageDao().insertAll(messages)
+                            db.messageDao().insertAll(messages)
                         }
-                    }
 
-                    MediatorResult.Success(reachedEnd)
+                        MediatorResult.Success(reachedEnd)
+                    }
                 } catch (e: MessagingException) {
-                    e.printStackTrace()
                     MediatorResult.Error(e)
                 }
             }
@@ -165,9 +169,9 @@ class MessageService(
     suspend fun downloadAttachment(
         attachment: Attachment,
         progressCb: (Float) -> Unit,
-    ) = withContext(Dispatchers.IO) {
+    ) = useFolder("INBOX") { folder ->
         val message = db.messageDao().getById(attachment.msgId)!!
-        val remoteMessage = openFolder().getMessage(message.msgNum)
+        val remoteMessage = folder.getMessage(message.msgNum)
         val mixed = remoteMessage.content as MimeMultipart
 
         val part = (1 until mixed.count)
@@ -210,13 +214,12 @@ class MessageService(
             val attachments = db.messageDao().getAttachments(message.id)
             return Pair(storedBody, attachments)
         } else {
-            return withContext(Dispatchers.IO) {
-                val folder = openFolder()
+            return useFolder("INBOX") { folder ->
                 val remoteMsg = folder.getMessage(message.msgNum)
 
                 val attachments = extractAttachments(remoteMsg, message.id)
                 val body = extractTextBody(remoteMsg, message.id)
-                    ?: return@withContext Pair(null, attachments)
+                    ?: return@useFolder Pair(null, attachments)
 
                 db.withTransaction {
                     db.messageDao().insertBody(body)
@@ -284,9 +287,7 @@ class MessageService(
         }
     }
 
-    suspend fun searchMessages(pattern: String): List<Message>? = withContext(Dispatchers.IO) {
-        val folder = openFolder()
-
+    suspend fun searchMessages(pattern: String): List<Message>? = useFolder("INBOX") { folder ->
         val term = OrTerm(arrayOf(FromStringTerm(pattern), SubjectTerm(pattern), BodyTerm(pattern)))
         val nums = folder.doCommand { p ->
             try {
@@ -294,11 +295,10 @@ class MessageService(
             } catch (e: CommandFailedException) {
                 null
             }
-        } as Array<Int>? ?: return@withContext null
+        } as Array<Int>? ?: return@useFolder null
 
         nums.mapNotNull { msgNum ->
-            db.messageDao().getByMsgNum(msgNum)
-                ?: convertToEntity(folder.getMessage(msgNum))
+            db.messageDao().getByMsgNum(msgNum) ?: convertToEntity(folder.getMessage(msgNum))
         }
     }
 }
