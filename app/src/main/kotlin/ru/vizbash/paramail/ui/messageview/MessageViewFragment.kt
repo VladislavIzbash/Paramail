@@ -86,34 +86,34 @@ class MessageViewFragment : Fragment() {
         actionBar?.title = "Загрузка..."
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val msgRes = model.messageBody.await()
-            msgRes.onFailure {
-                it.printStackTrace()
+            try {
+                val msg = model.message.await()
+
+                actionBar?.title = msg.subject
+
+                ui.from.text = msg.from
+                @SuppressLint("SetTextI18n")
+                ui.date.text = "${dateFormat.format(msg.date)}\n${timeFormat.format(msg.date)}"
+                ui.recipients.text = msg.recipients.joinToString(", ")
+
+                val (body, attachments) = model.messageBody.await()
+
+                if (body != null) {
+                    if (body.mime.startsWith("text/plain")) {
+                        inflateTextBody(body)
+                    } else if (body.mime.startsWith("text/html")) {
+                        inflateHtmlBody(body)
+                    }
+                } else {
+                    inflateError(getString(R.string.failed_to_show_message))
+                }
+
+                inflateAttachments(attachments)
+            } catch (e: Exception) {
+                e.printStackTrace()
                 setFragmentResult(RESULT_KEY, bundleOf(RESULT_ERROR_KEY to true))
                 findNavController().popBackStack()
-                return@launch
             }
-            val (body, attachments) = msgRes.getOrNull()!!
-            val msg = model.message.await().getOrNull()!!
-
-            actionBar?.title = msg.subject
-
-            ui.from.text = msg.from
-            @SuppressLint("SetTextI18n")
-            ui.date.text = "${dateFormat.format(msg.date)}\n${timeFormat.format(msg.date)}"
-            ui.recipients.text = msg.recipients.joinToString(", ")
-
-            if (body != null) {
-                if (body.mime.startsWith("text/plain")) {
-                    inflateTextBody(body)
-                } else if (body.mime.startsWith("text/html")) {
-                    inflateHtmlBody(body)
-                }
-            } else {
-                inflateError(getString(R.string.failed_to_show_message))
-            }
-
-            inflateAttachments(attachments)
 
             ui.bodyLoadProgress.isVisible = false
         }

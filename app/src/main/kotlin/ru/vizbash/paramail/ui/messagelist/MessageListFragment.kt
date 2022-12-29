@@ -42,7 +42,7 @@ class MessageListFragment : Fragment() {
 
         setFragmentResultListener(MessageViewFragment.RESULT_KEY) { _, bundle ->
             if (bundle.getBoolean(MessageViewFragment.RESULT_ERROR_KEY)) {
-                Snackbar.make(ui.root, R.string.failed_to_load_message, Snackbar.LENGTH_SHORT)
+                Snackbar.make(ui.root, R.string.error_loading_message, Snackbar.LENGTH_SHORT)
                     .show()
             }
         }
@@ -122,7 +122,7 @@ class MessageListFragment : Fragment() {
                 is LoadState.Error -> {
                     (loadState.refresh as LoadState.Error).error.printStackTrace()
 
-                    Snackbar.make(ui.root, R.string.error_loading_messages, Snackbar.LENGTH_LONG)
+                    Snackbar.make(ui.root, R.string.error_loading_message_list, Snackbar.LENGTH_LONG)
                         .setAction(R.string.try_again) {
                             messageAdapter.refresh()
                         }

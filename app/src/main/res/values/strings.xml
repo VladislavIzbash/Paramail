@@ -29,7 +29,6 @@
     <string name="loading">Загрузка...</string>
     <string name="reply_all">Ответить всем</string>
     <string name="failed_to_show_message">Сообщение имеет неподдерживаемый формат</string>
-    <string name="failed_to_load_message">Не удалось загрузить сообщение</string>
     <string name="search_messages">Поиск по сообщениям</string>
     <string name="sort">Сортировать</string>
     <string-array name="size_units">
@@ -42,6 +41,8 @@
     <string name="save">Сохранить</string>
     <string name="cancel">Отмена</string>
     <string name="download_of">Загрузка %1$s</string>
-    <string name="error_loading_messages">Ошибка загрузки сообщений</string>
+    <string name="error_loading_message_list">Ошибка загрузки списка сообщений</string>
+    <string name="error_loading_message">Ошибка загрузки сообщения</string>
     <string name="try_again">Повторить</string>
+    <string name="settings">Настройки</string>
 </resources>

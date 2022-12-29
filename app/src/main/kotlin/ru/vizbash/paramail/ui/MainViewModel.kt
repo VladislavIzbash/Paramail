@@ -1,7 +1,14 @@
 package ru.vizbash.paramail.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import ru.vizbash.paramail.mail.MailService
+import javax.inject.Inject
 
 sealed class SearchState {
     object Opened : SearchState()
@@ -9,6 +16,20 @@ sealed class SearchState {
     data class Searched(val query: String) : SearchState()
 }
 
-class MainViewModel : ViewModel() {
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val mailService: MailService,
+) : ViewModel() {
     val searchState = MutableStateFlow<SearchState>(SearchState.Closed)
+
+    val accountList = mailService.accountList()
+
+    val folderList = viewModelScope.async {
+        val account = accountList.first().firstOrNull()!!
+        mailService.getMessageService(account.id).listFolders()
+    }
+
+    var selectedAccountId = MutableStateFlow<Int?>(null)
+
+    suspend fun getAccountById(id: Int) = mailService.getAccountById(id)
 }

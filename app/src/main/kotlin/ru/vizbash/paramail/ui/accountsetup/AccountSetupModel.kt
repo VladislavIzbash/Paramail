@@ -3,9 +3,8 @@ package ru.vizbash.paramail.ui.accountsetup
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import ru.vizbash.paramail.R
 import ru.vizbash.paramail.mail.MailService
-import ru.vizbash.paramail.storage.entity.MailData
+import ru.vizbash.paramail.storage.account.MailData
 import java.util.*
 import javax.inject.Inject
 import javax.mail.AuthenticationFailedException

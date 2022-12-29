@@ -13,7 +13,7 @@
         android:layout_height="match_parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        android:src="@drawable/ic_account_placeholder" />
+        android:src="@drawable/other_mail_logo" />
 
     <TextView
         android:id="@+id/name"

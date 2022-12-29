@@ -3,7 +3,9 @@ package ru.vizbash.paramail.storage
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import ru.vizbash.paramail.storage.entity.MailAccount
+import ru.vizbash.paramail.storage.account.AccountDao
+import ru.vizbash.paramail.storage.account.FolderEntity
+import ru.vizbash.paramail.storage.account.MailAccount
 import ru.vizbash.paramail.storage.message.*
 
 @Database(
@@ -12,8 +14,9 @@ import ru.vizbash.paramail.storage.message.*
         Message::class,
         MessageBody::class,
         Attachment::class,
+        FolderEntity::class,
     ],
-    version = 6,
+    version = 7,
 )
 @TypeConverters(Converters::class)
 abstract class MailDatabase: RoomDatabase() {

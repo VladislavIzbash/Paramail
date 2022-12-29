@@ -19,6 +19,8 @@
 
         <item name="enterAnim">@anim/nav_default_enter_anim</item>
         <item name="exitAnim">@anim/nav_default_exit_anim</item>
+
+        <item name="android:windowTranslucentStatus">true</item>
     </style>
 
     <style name="Theme.Paramail.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />

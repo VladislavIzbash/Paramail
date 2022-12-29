@@ -1,5 +1,6 @@
 package ru.vizbash.paramail.ui
 
+import android.content.Context
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
@@ -7,18 +8,17 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.os.bundleOf
+import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.R
-import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.ui.messagelist.MessageListFragment
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class GettingStartedFragment : Fragment() {
-
-    @Inject lateinit var mailService: MailService
+    private val mainModel: MainViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -36,16 +36,19 @@ class GettingStartedFragment : Fragment() {
             findNavController().navigate(R.id.action_gettingStartedFragment_to_accountSetupWizardFragment)
         }
 
-        runBlocking {
-            val account = mailService.accountList().firstOrNull()
-            if (account != null) {
-                findNavController().navigate(R.id.action_gettingStartedFragment_to_messageListFragment, bundleOf(
-                    MessageListFragment.ARG_ACCOUNT_ID to account.id
-                ))
-            }
+        val accountList = runBlocking {
+            mainModel.accountList.first()
         }
+        if (accountList.isEmpty()) {
+            return
+        }
+
+        val prefs = requireActivity().getPreferences(Context.MODE_PRIVATE)
+        val accountId = prefs.getInt(MainActivity.LAST_ACCOUNT_ID_KEY, accountList.first().id)
+
+        mainModel.selectedAccountId.value = accountId
+        findNavController().navigate(R.id.action_gettingStartedFragment_to_messageListFragment, bundleOf(
+            MessageListFragment.ARG_ACCOUNT_ID to accountId
+        ))
     }
-
-
-
 }

@@ -15,7 +15,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import ru.vizbash.paramail.storage.MailDatabase
-import ru.vizbash.paramail.storage.entity.MailAccount
+import ru.vizbash.paramail.storage.account.FolderEntity
+import ru.vizbash.paramail.storage.account.MailAccount
 import ru.vizbash.paramail.storage.message.Attachment
 import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.storage.message.MessageBody
@@ -295,10 +296,22 @@ class MessageService(
             } catch (e: CommandFailedException) {
                 null
             }
-        } as Array<Int>? ?: return@useFolder null
+        } as Array<*>? ?: return@useFolder null
 
         nums.mapNotNull { msgNum ->
-            db.messageDao().getByMsgNum(msgNum) ?: convertToEntity(folder.getMessage(msgNum))
+            db.messageDao().getByMsgNum(msgNum as Int) ?: convertToEntity(folder.getMessage(msgNum))
         }
     }
+
+    suspend fun listFolders(): List<String> = withContext(Dispatchers.IO) {
+        db.accountDao().getFolders(account.id).ifEmpty {
+            val folders = storeMutex.withLock {
+                val store = mailService.connectImap(account.props, account.imap)
+                store.defaultFolder.list()
+            }
+            db.accountDao().insertFolders(folders.map { FolderEntity(0, account.id, it.name) })
+            folders.map(Folder::getName)
+        }
+    }
+
 }

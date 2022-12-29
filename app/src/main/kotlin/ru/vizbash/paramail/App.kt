@@ -1,14 +1,13 @@
 package ru.vizbash.paramail
 
 import android.app.Application
-import android.util.Log
 import android.webkit.WebView
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.runBlocking
-import ru.vizbash.paramail.storage.AccountDao
-import ru.vizbash.paramail.storage.entity.Creds
-import ru.vizbash.paramail.storage.entity.MailAccount
-import ru.vizbash.paramail.storage.entity.MailData
+import ru.vizbash.paramail.storage.account.AccountDao
+import ru.vizbash.paramail.storage.account.Creds
+import ru.vizbash.paramail.storage.account.MailAccount
+import ru.vizbash.paramail.storage.account.MailData
 import java.util.Properties
 import javax.inject.Inject
 
@@ -36,7 +35,7 @@ class App : Application() {
 
             runBlocking {
                 accountDao.insert(MailAccount(
-                    0,
+                    1,
                     props,
                     MailData(BuildConfig.SMTP_HOST, BuildConfig.SMTP_PORT, creds),
                     MailData(BuildConfig.IMAP_HOST, BuildConfig.IMAP_PORT, creds),

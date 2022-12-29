@@ -10,8 +10,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.update
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupImapBinding
-import ru.vizbash.paramail.storage.entity.Creds
-import ru.vizbash.paramail.storage.entity.MailData
+import ru.vizbash.paramail.storage.account.Creds
+import ru.vizbash.paramail.storage.account.MailData
 import java.util.*
 
 @AndroidEntryPoint

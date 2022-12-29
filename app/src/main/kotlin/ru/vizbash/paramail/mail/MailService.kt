@@ -5,11 +5,9 @@ import com.sun.mail.imap.IMAPStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import ru.vizbash.paramail.storage.AccountDao
 import ru.vizbash.paramail.storage.MailDatabase
-import ru.vizbash.paramail.storage.message.MessageDao
-import ru.vizbash.paramail.storage.entity.MailAccount
-import ru.vizbash.paramail.storage.entity.MailData
+import ru.vizbash.paramail.storage.account.MailAccount
+import ru.vizbash.paramail.storage.account.MailData
 import java.util.Properties
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,7 +58,7 @@ class MailService @Inject constructor(
         store as IMAPStore
     }
 
-    suspend fun accountList() = db.accountDao().getAll()
+    fun accountList() = db.accountDao().getAll()
 
     suspend fun addAccount(props: Properties, smtpData: MailData, imapData: MailData) {
         requireNotNull(imapData.creds)

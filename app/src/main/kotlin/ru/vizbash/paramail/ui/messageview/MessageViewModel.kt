@@ -27,12 +27,10 @@ class MessageViewModel @Inject constructor(
 
     val message = viewModelScope.async {
         val msgId = savedState.get<Int>(MessageViewFragment.ARG_MESSAGE_ID)!!
-        runCatching { messageService.await().getById(msgId)!! }
+        messageService.await().getById(msgId)!!
     }
     val messageBody = viewModelScope.async {
-        message.await().mapCatching {
-            messageService.await().getMessageBodyWithAttachments(it)
-        }
+        messageService.await().getMessageBodyWithAttachments(message.await())
     }
 
     private val _downloadProgress = MutableStateFlow(0F)
