@@ -45,10 +45,12 @@ class GettingStartedFragment : Fragment() {
 
         val prefs = requireActivity().getPreferences(Context.MODE_PRIVATE)
         val accountId = prefs.getInt(MainActivity.LAST_ACCOUNT_ID_KEY, accountList.first().id)
+        val folder = prefs.getString(MainActivity.LAST_FOLDER_KEY, "INBOX")
 
         mainModel.selectedAccountId.value = accountId
         findNavController().navigate(R.id.action_gettingStartedFragment_to_messageListFragment, bundleOf(
-            MessageListFragment.ARG_ACCOUNT_ID to accountId
+            MessageListFragment.ARG_ACCOUNT_ID to accountId,
+            MessageListFragment.ARG_FOLDER_NAME to folder,
         ))
     }
 }

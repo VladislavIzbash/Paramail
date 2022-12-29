@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.fragment.app.*
@@ -29,6 +30,7 @@ import ru.vizbash.paramail.ui.SearchState
 class MessageListFragment : Fragment() {
     companion object {
         const val ARG_ACCOUNT_ID = "account_id"
+        const val ARG_FOLDER_NAME = "folder_id"
     }
 
     private var _ui: FragmentMessageListBinding? = null
@@ -67,6 +69,8 @@ class MessageListFragment : Fragment() {
             requireContext(),
             DividerItemDecoration.VERTICAL,
         ))
+
+        (requireActivity() as AppCompatActivity).supportActionBar?.title = model.folder
 
         val messageSearchAdapter = ListMessageAdapter()
 

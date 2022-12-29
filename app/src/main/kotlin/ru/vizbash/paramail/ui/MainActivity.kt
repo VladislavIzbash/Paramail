@@ -29,6 +29,7 @@ import ru.vizbash.paramail.ui.messagelist.MessageListFragment
 
 private const val ACCOUNT_GROUP = 1
 private const val FOLDER_GROUP = 2
+private const val DEFAULT_FOLDER = "INBOX"
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -103,83 +104,109 @@ class MainActivity : AppCompatActivity() {
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
     }
 
+    private suspend fun observeAccountList() {
+        val menu = ui.navigationView.menu
+
+        repeatOnLifecycle(Lifecycle.State.STARTED) {
+            launch {
+                model.accountList.collect { accountList ->
+                    menu.removeGroup(ACCOUNT_GROUP)
+
+                    for (account in accountList) {
+                        menu.add(
+                            ACCOUNT_GROUP,
+                            account.id,
+                            Menu.NONE,
+                            account.imap.creds!!.login,
+                        ).apply {
+                            setIcon(R.drawable.ic_email)
+                            isChecked = account.id == model.selectedAccountId.value
+                        }
+                    }
+                    menu.add(ACCOUNT_GROUP, R.id.item_add_account, Menu.NONE, R.string.add_account)
+                        .apply {
+                            setIcon(R.drawable.ic_add)
+                        }
+                }
+            }
+
+            launch {
+                model.selectedAccountId.filterNotNull().collect { accountId ->
+                    menu.removeGroup(FOLDER_GROUP)
+
+                    for (folder in model.getFolderList()) {
+                        menu.add(FOLDER_GROUP, Menu.NONE, Menu.NONE, folder).apply {
+                            setIcon(R.drawable.ic_folder)
+                            isChecked = folder == DEFAULT_FOLDER
+                        }
+                    }
+
+                    menu.forEach { item ->
+                        if (item.groupId == ACCOUNT_GROUP) {
+                            item.isChecked = item.itemId == accountId
+                        }
+                    }
+
+                    getPreferences(Context.MODE_PRIVATE).edit {
+                        putInt(LAST_ACCOUNT_ID_KEY, accountId)
+                        remove(LAST_FOLDER_KEY)
+                    }
+                }
+            }
+        }
+    }
+
     private fun initDrawer() {
         val menu = ui.navigationView.menu
 
         ui.navigationView.setNavigationItemSelectedListener { item ->
-            when {
+            val opts = NavOptions.Builder()
+                .setLaunchSingleTop(true)
+                .setPopUpTo(
+                    navController.graph.findStartDestination().id,
+                    inclusive = false,
+                    saveState = true,
+                )
+                .build()
+
+            val selected = when {
                 item.itemId == R.id.item_add_account -> {
-                    navController.navigate(R.id.accountSetupImapFragment)
+                    navController.navigate(R.id.action_global_accountSetupWizardFragment)
+                    false
                 }
                 item.groupId == ACCOUNT_GROUP -> {
-                    val opts = NavOptions.Builder()
-                        .setPopUpTo(
-                            navController.graph.findStartDestination().id,
-                            inclusive = false,
-                            saveState = true
-                        )
-                        .build()
                     val args = bundleOf(
                         MessageListFragment.ARG_ACCOUNT_ID to item.itemId,
+                        MessageListFragment.ARG_FOLDER_NAME to DEFAULT_FOLDER,
+                    )
+                    navController.navigate(R.id.messageListFragment, args, opts)
+                    model.selectedAccountId.value = item.itemId
+                    true
+                }
+                item.groupId == FOLDER_GROUP -> {
+                    val args = bundleOf(
+                        MessageListFragment.ARG_ACCOUNT_ID to model.selectedAccountId.value,
+                        MessageListFragment.ARG_FOLDER_NAME to item.title,
                     )
                     navController.navigate(R.id.messageListFragment, args, opts)
 
-                    model.selectedAccountId.value = item.itemId
+                    getPreferences(Context.MODE_PRIVATE).edit {
+                        putString(LAST_FOLDER_KEY, item.title.toString())
+                    }
+                    true
                 }
-                else -> {}
+                else -> false
             }
             ui.root.close()
-            false
+            selected
+        }
+
+        menu.add(Menu.NONE, Menu.NONE, 101, R.string.settings).apply {
+            setIcon(R.drawable.ic_settings)
         }
 
         lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    model.accountList.collect { accountList ->
-                        menu.removeGroup(ACCOUNT_GROUP)
-
-                        for (account in accountList) {
-                            menu.add(
-                                ACCOUNT_GROUP,
-                                account.id,
-                                Menu.NONE,
-                                account.imap.creds!!.login,
-                            ).apply {
-                                setIcon(R.drawable.ic_email)
-                                isChecked = account.id == model.selectedAccountId.value
-                            }
-                        }
-                        menu.add(ACCOUNT_GROUP, R.id.item_add_account, Menu.NONE, R.string.add_account).apply {
-                            setIcon(R.drawable.ic_add)
-                        }
-                    }
-                }
-                launch {
-                    model.selectedAccountId.filterNotNull().collect { accountId ->
-                        menu.forEach { item ->
-                            if (item.groupId == ACCOUNT_GROUP) {
-                                item.isChecked = item.itemId == accountId
-                            }
-                        }
-
-                        getPreferences(Context.MODE_PRIVATE).edit {
-                            putInt(LAST_ACCOUNT_ID_KEY, accountId)
-                        }
-                    }
-                }
-            }
-        }
-
-        lifecycleScope.launch {
-            for (folder in model.folderList.await()) {
-                menu.add(FOLDER_GROUP, Menu.NONE, Menu.NONE, folder).apply {
-                    setIcon(R.drawable.ic_folder)
-                }
-            }
-
-            menu.add(R.string.settings).apply {
-                setIcon(R.drawable.ic_settings)
-            }
+            observeAccountList()
         }
     }
 }

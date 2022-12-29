@@ -46,4 +46,8 @@
         android:label="fragment_message_view"
         tools:layout="@layout/fragment_message_view" />
 
+    <action
+        android:id="@+id/action_global_accountSetupWizardFragment"
+        app:destination="@id/accountSetupWizardFragment" />
+
 </navigation>

@@ -46,9 +46,6 @@ class MessageService(
 ) {
     private val storeMutex = Mutex()
 
-    val storedMessages: PagingSource<Int, Message>
-        get() = db.messageDao().pageAll(account.id)
-
     private suspend inline fun <R> useFolder(name: String, crossinline block: suspend (IMAPFolder) -> R): R {
         return withContext(Dispatchers.IO) {
             storeMutex.withLock {
@@ -65,14 +62,11 @@ class MessageService(
         }
     }
 
-    private fun fetchMessages(folder: IMAPFolder, startNum: Int, count: Int): List<Message> {
-        return folder.getMessages(startNum - count + 1, startNum)
-            .filter { it.allRecipients != null && it.subject != null }
-            .reversed()
-            .mapNotNull(this::convertToEntity)
+    fun getStoredMessages(folderName: String): PagingSource<Int, Message> {
+        return db.messageDao().getAllPaged(account.id, folderName)
     }
 
-    private fun convertToEntity(msg: javax.mail.Message): Message? {
+    private fun convertToEntity(msg: javax.mail.Message, folderId: Int): Message? {
         if (msg.allRecipients == null || msg.subject == null) {
             return null
         }
@@ -83,6 +77,7 @@ class MessageService(
             id = 0,
             msgNum = msg.messageNumber,
             accountId = account.id,
+            folderId = folderId,
             subject = msg.subject,
             recipients = msg.getRecipients(RecipientType.TO).map {
                 val addr = it as InternetAddress
@@ -99,12 +94,12 @@ class MessageService(
     }
 
     @OptIn(ExperimentalPagingApi::class)
-    val remoteMediator: RemoteMediator<Int, Message>
-        get() = object : RemoteMediator<Int, Message>() {
+    fun getRemoteMediator(folderName: String): RemoteMediator<Int, Message> {
+        return object : RemoteMediator<Int, Message>() {
 
             override suspend fun initialize(): InitializeAction {
                 return try {
-                    useFolder("INBOX") { folder ->
+                    useFolder(folderName) { folder ->
                         val hasNewMsgs = folder.hasNewMessages()
                         val hasCachedMsgs = db.messageDao().getMessageCount() > 0
 
@@ -123,8 +118,10 @@ class MessageService(
                 loadType: LoadType,
                 state: PagingState<Int, Message>,
             ): MediatorResult {
+                val folderId = db.accountDao().getFolderOrInsert(folderName, account.id).id
+
                 return try {
-                    useFolder("INBOX") { folder ->
+                    useFolder(folderName) { folder ->
                         val startNum = when (loadType) {
                             LoadType.REFRESH -> folder.messageCount
                             LoadType.PREPEND -> return@useFolder MediatorResult.Success(true)
@@ -133,11 +130,15 @@ class MessageService(
 
                         val pageSize = state.config.pageSize
 
-                        Log.d(TAG, "loading $pageSize messages starting from page $startNum")
+                        Log.d(TAG, "loading $pageSize messages from $folder starting from page $startNum")
 
                         val reachedEnd = startNum - pageSize <= 0
                         if (!reachedEnd) {
-                            val messages = fetchMessages(folder, startNum, pageSize)
+                            val messages = folder.getMessages(startNum - pageSize + 1, startNum)
+                                .filter { it.allRecipients != null && it.subject != null }
+                                .reversed()
+                                .mapNotNull { convertToEntity(it, folderId) }
+
                             if (loadType == LoadType.REFRESH) {
                                 db.messageDao().clearAll()
                             }
@@ -151,11 +152,12 @@ class MessageService(
                 }
             }
         }
+    }
 
     suspend fun getById(messageId: Int) = db.messageDao().getById(messageId)
 
     fun getAttachmentUri(attachment: Attachment): Uri? {
-        val file = File("${context.filesDir}/$ATTACHMENTS_DIR/${attachment.fileName})")
+        val file = File("${context.filesDir}/$ATTACHMENTS_DIR/${attachment.id.toUInt()})")
         if (!file.exists()) {
             return null
         }
@@ -170,52 +172,58 @@ class MessageService(
     suspend fun downloadAttachment(
         attachment: Attachment,
         progressCb: (Float) -> Unit,
-    ) = useFolder("INBOX") { folder ->
+    ) {
         val message = db.messageDao().getById(attachment.msgId)!!
-        val remoteMessage = folder.getMessage(message.msgNum)
-        val mixed = remoteMessage.content as MimeMultipart
+        val folderName = db.accountDao().getFolderById(message.folderId)!!.name
 
-        val part = (1 until mixed.count)
-            .map(mixed::getBodyPart)
-            .find { MimeUtility.decodeText(it.fileName) == attachment.fileName }!!
-        val input = part.inputStream
+        useFolder(folderName) { folder ->
+            val remoteMessage = folder.getMessage(message.msgNum)
+            val mixed = remoteMessage.content as MimeMultipart
 
-        File("${context.filesDir}/$ATTACHMENTS_DIR").mkdir()
-        val file = File("${context.filesDir}/$ATTACHMENTS_DIR/${attachment.fileName})")
+            val part = (1 until mixed.count)
+                .map(mixed::getBodyPart)
+                .find { MimeUtility.decodeText(it.fileName) == attachment.fileName }!!
+            val input = part.inputStream
 
-        try {
-            file.outputStream().use { output ->
-                val buf = ByteArray(DOWNLOAD_BLOCK_SIZE)
-                var totalRead = 0
+            File("${context.filesDir}/$ATTACHMENTS_DIR").mkdir()
+            val file = File("${context.filesDir}/$ATTACHMENTS_DIR/${attachment.id.toUInt()})")
 
-                progressCb(0F)
+            try {
+                file.outputStream().use { output ->
+                    val buf = ByteArray(DOWNLOAD_BLOCK_SIZE)
+                    var totalRead = 0
 
-                while (true) {
-                    yield()
+                    progressCb(0F)
 
-                    val read = input.read(buf)
-                    if (read <= 0) {
-                        progressCb(1.0F)
-                        break
+                    while (true) {
+                        yield()
+
+                        val read = input.read(buf)
+                        if (read <= 0) {
+                            progressCb(1.0F)
+                            break
+                        }
+
+                        output.write(buf, 0, read)
+                        totalRead += read
+                        progressCb(totalRead.toFloat() / part.size.toFloat())
                     }
-
-                    output.write(buf, 0, read)
-                    totalRead += read
-                    progressCb(totalRead.toFloat() / part.size.toFloat())
                 }
+            } catch (e: CancellationException) {
+                file.delete()
             }
-        } catch (e: CancellationException) {
-            file.delete()
         }
     }
 
     suspend fun getMessageBodyWithAttachments(message: Message): Pair<MessageBody?, List<Attachment>> {
+        val folderName = db.accountDao().getFolderById(message.folderId)!!.name
+
         val storedBody = db.messageDao().getMessageBody(message.id)
         if (storedBody != null) {
             val attachments = db.messageDao().getAttachments(message.id)
             return Pair(storedBody, attachments)
         } else {
-            return useFolder("INBOX") { folder ->
+            return useFolder(folderName) { folder ->
                 val remoteMsg = folder.getMessage(message.msgNum)
 
                 val attachments = extractAttachments(remoteMsg, message.id)
@@ -288,7 +296,10 @@ class MessageService(
         }
     }
 
-    suspend fun searchMessages(pattern: String): List<Message>? = useFolder("INBOX") { folder ->
+    suspend fun searchMessages(
+        pattern: String,
+        folderName: String,
+    ): List<Message>? = useFolder(folderName) { folder ->
         val term = OrTerm(arrayOf(FromStringTerm(pattern), SubjectTerm(pattern), BodyTerm(pattern)))
         val nums = folder.doCommand { p ->
             try {
@@ -299,7 +310,8 @@ class MessageService(
         } as Array<*>? ?: return@useFolder null
 
         nums.mapNotNull { msgNum ->
-            db.messageDao().getByMsgNum(msgNum as Int) ?: convertToEntity(folder.getMessage(msgNum))
+            db.messageDao().getByMsgNum(msgNum as Int)
+                ?: convertToEntity(folder.getMessage(msgNum), 0)
         }
     }
 
@@ -309,6 +321,7 @@ class MessageService(
                 val store = mailService.connectImap(account.props, account.imap)
                 store.defaultFolder.list()
             }
+
             db.accountDao().insertFolders(folders.map { FolderEntity(0, account.id, it.name) })
             folders.map(Folder::getName)
         }
