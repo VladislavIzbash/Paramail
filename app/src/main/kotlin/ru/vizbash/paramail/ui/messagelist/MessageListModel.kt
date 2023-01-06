@@ -19,7 +19,7 @@ class MessageListModel @Inject constructor(
     val folder = savedState.get<String>(MessageListFragment.ARG_FOLDER_NAME)!!
 
     private val messageService = viewModelScope.async {
-        mailService.getMessageService(accountId)
+        mailService.getFolderService(accountId)
     }
 
     @OptIn(ExperimentalPagingApi::class)

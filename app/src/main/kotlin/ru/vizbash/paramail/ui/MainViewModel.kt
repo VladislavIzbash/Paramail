@@ -1,14 +1,8 @@
 package ru.vizbash.paramail.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import ru.vizbash.paramail.mail.MailService
 import javax.inject.Inject
 
@@ -31,6 +25,6 @@ class MainViewModel @Inject constructor(
 
     suspend fun getFolderList(): List<String> {
         checkNotNull(selectedAccountId.value)
-        return mailService.getMessageService(selectedAccountId.value!!).listFolders()
+        return mailService.getFolderService(selectedAccountId.value!!).listFolders()
     }
 }

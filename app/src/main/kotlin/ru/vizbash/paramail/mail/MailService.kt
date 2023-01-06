@@ -1,26 +1,30 @@
 package ru.vizbash.paramail.mail
 
 import android.content.Context
+import android.util.Log
 import com.sun.mail.imap.IMAPStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ru.vizbash.paramail.BuildConfig
 import ru.vizbash.paramail.storage.MailDatabase
+import ru.vizbash.paramail.storage.account.FolderEntity
 import ru.vizbash.paramail.storage.account.MailAccount
 import ru.vizbash.paramail.storage.account.MailData
-import java.util.Properties
+import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.mail.MessagingException
 import javax.mail.Session
 import javax.mail.Transport
+
+private const val TAG = "MailService"
 
 @Singleton
 class MailService @Inject constructor(
     private val db: MailDatabase,
     @ApplicationContext private val context: Context,
 ) {
-    private val messageServices = mutableMapOf<Int, MessageService>()
-
     suspend fun connectSmtp(
         props: Properties,
         smtpData: MailData,
@@ -30,6 +34,7 @@ class MailService @Inject constructor(
         newProps["mail.smtp.port"] = smtpData.port
 
         val session = Session.getInstance(newProps)
+        session.debug = BuildConfig.DEBUG
 
         val transport = session.getTransport("smtp")
         if (smtpData.creds != null) {
@@ -37,6 +42,7 @@ class MailService @Inject constructor(
         } else {
             transport.connect()
         }
+
         transport
     }
 
@@ -47,6 +53,8 @@ class MailService @Inject constructor(
         requireNotNull(imapData.creds)
 
         val session = Session.getInstance(props)
+        session.debug = BuildConfig.DEBUG
+
         val store = session.getStore("imap")
         store.connect(
             imapData.host,
@@ -54,6 +62,8 @@ class MailService @Inject constructor(
             imapData.creds.login,
             imapData.creds.secret,
         )
+
+        Log.d(TAG, "${imapData.creds.login}: connected to ${imapData.host}:${imapData.port}")
 
         store as IMAPStore
     }
@@ -67,12 +77,26 @@ class MailService @Inject constructor(
         db.accountDao().insert(account)
     }
 
-    suspend fun getAccountById(accountId: Int) = db.accountDao().getById(accountId)
+//    suspend fun getAccountById(accountId: Int) = db.accountDao().getById(accountId)
 
-    suspend fun getMessageService(accountId: Int): MessageService {
-        return messageServices.getOrPut(accountId) {
-            val account = db.accountDao().getById(accountId)!!
-            MessageService(account, db, this, context)
+    suspend fun getFolderService(accountId: Int, folderId: Int): FolderService {
+        val account = db.accountDao().getById(accountId)!!
+        val folder = db.accountDao().getFolderById(folderId)!!
+
+        return FolderService(account, db, this, context, folder)
+    }
+
+    suspend fun listFolders(accountId: Int): List<FolderEntity> = withContext(Dispatchers.IO) {
+        val account = db.accountDao().getById(accountId)!!
+
+        try {
+            connectImap(account.props, account.imap).use { store ->
+                val folders = store.defaultFolder.list().map { FolderEntity(0, account.id, it.name) }
+                db.accountDao().insertFolders(folders)
+                return@withContext folders
+            }
+        } catch (e: MessagingException) {
+            return@withContext db.accountDao().getFolders(accountId)
         }
     }
 }

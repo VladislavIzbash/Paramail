@@ -17,8 +17,8 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun getById(id: Int): MailAccount?
 
-    @Query("SELECT name FROM folders WHERE account_id = :accountId")
-    suspend fun getFolders(accountId: Int): List<String>
+    @Query("SELECT * FROM folders WHERE account_id = :accountId")
+    suspend fun getFolders(accountId: Int): List<FolderEntity>
 
     @Query("SELECT * FROM folders WHERE id = :id")
     suspend fun getFolderById(id: Int): FolderEntity?
@@ -26,7 +26,7 @@ interface AccountDao {
     @Query("SELECT * FROM folders WHERE name = :name AND account_id = :accountId")
     suspend fun getFolderByName(name: String, accountId: Int): FolderEntity?
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFolders(folders: List<FolderEntity>): List<Long>
 
     suspend fun getFolderOrInsert(name: String, accountId: Int): FolderEntity {
