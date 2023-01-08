@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.fragment.app.*
@@ -22,6 +21,7 @@ import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentMessageListBinding
 import ru.vizbash.paramail.storage.message.Message
+import ru.vizbash.paramail.ui.MainActivity
 import ru.vizbash.paramail.ui.MainViewModel
 import ru.vizbash.paramail.ui.messageview.MessageViewFragment
 import ru.vizbash.paramail.ui.SearchState
@@ -30,7 +30,7 @@ import ru.vizbash.paramail.ui.SearchState
 class MessageListFragment : Fragment() {
     companion object {
         const val ARG_ACCOUNT_ID = "account_id"
-        const val ARG_FOLDER_NAME = "folder_id"
+        const val ARG_FOLDER_NAME = "folder_name"
     }
 
     private var _ui: FragmentMessageListBinding? = null
@@ -70,11 +70,11 @@ class MessageListFragment : Fragment() {
             DividerItemDecoration.VERTICAL,
         ))
 
-        (requireActivity() as AppCompatActivity).supportActionBar?.title = model.folder
-
         val messageSearchAdapter = ListMessageAdapter()
 
         viewLifecycleOwner.lifecycleScope.launch {
+            (requireActivity() as MainActivity).setFolderName(model.folderName)
+
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 mainModel.searchState.collectLatest { state ->
                     when (state) {
@@ -89,7 +89,7 @@ class MessageListFragment : Fragment() {
                             ui.loadingProgress.isVisible = true
                             val results = model.searchMessages(state.query)
                             if (results == null) {
-                                Snackbar.make(ui.root, "Сервер не поддерживает поиск", Snackbar.LENGTH_SHORT)
+                                Snackbar.make(ui.root, R.string.search_is_not_supported, Snackbar.LENGTH_SHORT)
                                     .show()
                             } else {
                                 messageSearchAdapter.submitList(results)
@@ -105,6 +105,7 @@ class MessageListFragment : Fragment() {
     private fun onMessageClicked(msg: Message) {
         val args = bundleOf(
             MessageViewFragment.ARG_ACCOUNT_ID to model.accountId,
+            MessageViewFragment.ARG_FOLDER_NAME to model.folderName,
             MessageViewFragment.ARG_MESSAGE_ID to msg.id,
         )
         findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment, args)

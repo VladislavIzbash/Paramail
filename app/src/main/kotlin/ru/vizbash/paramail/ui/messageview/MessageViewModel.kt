@@ -5,7 +5,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,17 +19,18 @@ class MessageViewModel @Inject constructor(
     mailService: MailService,
     savedState: SavedStateHandle,
 ) : ViewModel() {
-    private val messageService = viewModelScope.async {
+    private val folderService = viewModelScope.async {
         val accountId = savedState.get<Int>(MessageViewFragment.ARG_ACCOUNT_ID)!!
-        mailService.getFolderService(accountId)
+        val folderName = savedState.get<String>(MessageViewFragment.ARG_FOLDER_NAME)!!
+        mailService.getFolderService(accountId, folderName)
     }
 
     val message = viewModelScope.async {
         val msgId = savedState.get<Int>(MessageViewFragment.ARG_MESSAGE_ID)!!
-        messageService.await().getById(msgId)!!
+        folderService.await().getById(msgId)!!
     }
     val messageBody = viewModelScope.async {
-        messageService.await().getMessageBody(message.await())
+        folderService.await().getMessageBody(message.await())
     }
 
     private val _downloadProgress = MutableStateFlow(0F)
@@ -38,10 +38,12 @@ class MessageViewModel @Inject constructor(
 
     private var downloadJob: Job? = null
 
+    var downloadedUri: Uri? = null
+
     fun startDownload(attachment: Attachment) {
         downloadJob?.cancel()
         downloadJob = viewModelScope.launch {
-            messageService.await().downloadAttachment(attachment) {
+            downloadedUri = folderService.await().downloadAttachment(attachment) {
                 _downloadProgress.value = it
             }
         }
@@ -51,7 +53,4 @@ class MessageViewModel @Inject constructor(
         downloadJob?.cancel()
         _downloadProgress.value = 0F
     }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun getAttachmentUri(attachment: Attachment): Uri? = messageService.getCompleted().getAttachmentUri(attachment)
 }

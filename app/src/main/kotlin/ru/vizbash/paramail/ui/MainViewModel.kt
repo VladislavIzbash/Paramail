@@ -1,9 +1,13 @@
 package ru.vizbash.paramail.ui
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import ru.vizbash.paramail.mail.MailService
+import ru.vizbash.paramail.storage.account.FolderEntity
 import javax.inject.Inject
 
 sealed class SearchState {
@@ -19,12 +23,13 @@ class MainViewModel @Inject constructor(
     val searchState = MutableStateFlow<SearchState>(SearchState.Closed)
 
     val accountList = mailService.accountList()
-    var selectedAccountId = MutableStateFlow<Int?>(null)
 
-    suspend fun getAccountById(id: Int) = mailService.getAccountById(id)
+    private val _folderList = MutableStateFlow(listOf<FolderEntity>())
+    val folderList = _folderList.asStateFlow()
 
-    suspend fun getFolderList(): List<String> {
-        checkNotNull(selectedAccountId.value)
-        return mailService.getFolderService(selectedAccountId.value!!).listFolders()
+    fun switchAccount(accountId: Int) {
+        viewModelScope.launch {
+            _folderList.value = mailService.listFolders(accountId)
+        }
     }
 }

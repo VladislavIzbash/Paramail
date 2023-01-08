@@ -16,30 +16,30 @@ class MessageListModel @Inject constructor(
     savedState: SavedStateHandle,
 ) : ViewModel() {
     val accountId = savedState.get<Int>(MessageListFragment.ARG_ACCOUNT_ID)!!
-    val folder = savedState.get<String>(MessageListFragment.ARG_FOLDER_NAME)!!
+    val folderName = savedState.get<String>(MessageListFragment.ARG_FOLDER_NAME)!!
 
-    private val messageService = viewModelScope.async {
-        mailService.getFolderService(accountId)
+    private val folderService = viewModelScope.async {
+        mailService.getFolderService(accountId, folderName)
     }
 
     @OptIn(ExperimentalPagingApi::class)
     val messageFlow = viewModelScope.async {
-        val messageService = messageService.await()
+        val folderService = folderService.await()
 
         val pager = Pager(
             config = PagingConfig(
                 pageSize = 20,
                 enablePlaceholders = true,
             ),
-            remoteMediator = messageService.getRemoteMediator(folder),
+            remoteMediator = folderService.remoteMediator,
         ) {
-            messageService.getStoredMessages(folder)
+            folderService.storedMessages
         }
 
         pager.flow.cachedIn(viewModelScope)
     }
 
     suspend fun searchMessages(query: String): List<Message>? {
-        return messageService.await().searchMessages(query, folder)
+        return folderService.await().searchMessages(query)
     }
 }

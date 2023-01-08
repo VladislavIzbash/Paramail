@@ -15,7 +15,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
@@ -41,7 +40,8 @@ import kotlin.math.pow
 class MessageViewFragment : Fragment() {
     companion object {
         const val ARG_ACCOUNT_ID = "account_id"
-        const val ARG_MESSAGE_ID = "messaage_id"
+        const val ARG_FOLDER_NAME = "folder_name"
+        const val ARG_MESSAGE_ID = "message_id"
 
         const val RESULT_KEY = "view_result"
         const val RESULT_ERROR_KEY = "error"
@@ -83,7 +83,7 @@ class MessageViewFragment : Fragment() {
         val dateFormat = DateFormat.getMediumDateFormat(view.context)
 
         val actionBar = (requireActivity() as AppCompatActivity).supportActionBar
-        actionBar?.title = "Загрузка..."
+        actionBar?.setTitle(R.string.loading)
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -143,7 +143,7 @@ class MessageViewFragment : Fragment() {
             } else {
                 binding.fileTypeIcon.setImageResource(R.drawable.ic_attachment)
             }
-            binding.fileSize.text = formatSize(attachment.size)
+            binding.fileSize.text = formatFileSize(attachment.size)
 
             binding.root.setOnClickListener {
                 val dialog = AttachmentDialogFragment(attachment, model)
@@ -178,7 +178,7 @@ class MessageViewFragment : Fragment() {
         )
     }
 
-    private fun formatSize(size: Int): String {
+    private fun formatFileSize(size: Int): String {
         val units = resources.getStringArray(R.array.size_units)
 
         val digitGroup = (log10(size.toDouble()) / log10(1024F)).toInt()
@@ -186,12 +186,12 @@ class MessageViewFragment : Fragment() {
         return "$num ${units[digitGroup]}"
     }
 
-    class MessageWebViewClient(private val ctx: Context) : WebViewClient() {
+    class MessageWebViewClient(private val context: Context) : WebViewClient() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
             return if (request.url.scheme == "email") {
                 false
             } else {
-                ctx.startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                context.startActivity(Intent(Intent.ACTION_VIEW, request.url))
                 true
             }
         }

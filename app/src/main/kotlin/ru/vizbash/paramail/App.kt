@@ -21,6 +21,11 @@ class App : Application() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
         if (BuildConfig.DEBUG) {
+            System.setProperty(
+                kotlinx.coroutines.DEBUG_PROPERTY_NAME,
+                kotlinx.coroutines.DEBUG_PROPERTY_VALUE_ON,
+            )
+
             val props = Properties()
             props["mail.smtp.auth"] = "true"
             props["mail.smtp.ssl.enable"] = "true"

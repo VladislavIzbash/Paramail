@@ -11,6 +11,7 @@ import androidx.core.os.bundleOf
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.R
@@ -36,7 +37,7 @@ class GettingStartedFragment : Fragment() {
             findNavController().navigate(R.id.action_gettingStartedFragment_to_accountSetupWizardFragment)
         }
 
-        val accountList = runBlocking {
+        val accountList = runBlocking(Dispatchers.Default) {
             mainModel.accountList.first()
         }
         if (accountList.isEmpty()) {
@@ -44,13 +45,12 @@ class GettingStartedFragment : Fragment() {
         }
 
         val prefs = requireActivity().getPreferences(Context.MODE_PRIVATE)
-        val accountId = prefs.getInt(MainActivity.LAST_ACCOUNT_ID_KEY, accountList.first().id)
-        val folder = prefs.getString(MainActivity.LAST_FOLDER_KEY, "INBOX")
+        val accountId = prefs.getInt(MainActivity.KEY_LAST_ACCOUNT_ID, accountList.first().id)
+        val lastFolderName = prefs.getString(MainActivity.KEY_LAST_FOLDER_NAME, MainActivity.DEFAULT_FOLDER)
 
-        mainModel.selectedAccountId.value = accountId
         findNavController().navigate(R.id.action_gettingStartedFragment_to_messageListFragment, bundleOf(
             MessageListFragment.ARG_ACCOUNT_ID to accountId,
-            MessageListFragment.ARG_FOLDER_NAME to folder,
+            MessageListFragment.ARG_FOLDER_NAME to lastFolderName,
         ))
     }
 }

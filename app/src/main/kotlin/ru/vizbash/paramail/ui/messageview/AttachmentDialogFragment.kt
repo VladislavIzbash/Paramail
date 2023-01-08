@@ -2,21 +2,14 @@ package ru.vizbash.paramail.ui.messageview
 
 import android.app.Dialog
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
-import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.DialogAttachmentBinding
@@ -40,8 +33,7 @@ class AttachmentDialogFragment(
                 return@registerForActivityResult
             }
 
-            val attachmentUri = model.getAttachmentUri(attachment)!!
-            val input = requireContext().contentResolver.openInputStream(attachmentUri)!!
+            val input = requireContext().contentResolver.openInputStream(model.downloadedUri!!)!!
             val output = requireContext().contentResolver.openOutputStream(saveUri)!!
 
             input.use { output.use { input.copyTo(output) } }
@@ -51,35 +43,37 @@ class AttachmentDialogFragment(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _ui = DialogAttachmentBinding.inflate(layoutInflater)
 
-        val attachmentUri = model.getAttachmentUri(attachment)
+//        val attachmentUri = model.getAttachmentUri(attachment)
 
-        if (attachmentUri == null) {
-            ui.name.text = getString(R.string.download_of, attachment.fileName)
-            ui.cancelButton.isVisible = true
-            ui.saveButton.isVisible = false
-            ui.openButton.isVisible = false
+//        if (attachmentUri == null) {
+        ui.name.text = getString(R.string.downloading, attachment.fileName)
+        ui.cancelButton.isVisible = true
+        ui.downloadProgress.isVisible = true
+        ui.saveButton.isVisible = false
+        ui.openButton.isVisible = false
 
-            ui.cancelButton.setOnClickListener {
-                model.cancelDownload()
-            }
+        ui.cancelButton.setOnClickListener {
+            model.cancelDownload()
+            dismiss()
+        }
 
-            model.startDownload(attachment)
+        model.startDownload(attachment)
 
-            lifecycleScope.launch {
-                repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    model.downloadProgress.collect {
-                        ui.downloadProgress.progress = (it * 100F).toInt()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                model.downloadProgress.collect {
+                    ui.downloadProgress.progress = (it * 100F).toInt()
 
-                        if (it == 1F) {
-                            onDownloadFinished(model.getAttachmentUri(attachment)!!)
-                        }
+                    if (it == 1F) {
+                        onDownloadFinished()
                     }
                 }
             }
-        } else {
-            ui.downloadProgress.isVisible = false
-            onDownloadFinished(attachmentUri)
         }
+//        } else {
+//            ui.downloadProgress.isVisible = false
+//            onDownloadFinished(attachmentUri)
+//        }
 
         return object : Dialog(requireContext()) {
             override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,14 +83,14 @@ class AttachmentDialogFragment(
         }
     }
 
-    private fun onDownloadFinished(attachmentUri: Uri) {
-        ui.name.text = attachment.fileName
+    private fun onDownloadFinished() {
+        ui.name.text = getString(R.string.downloaded, attachment.fileName)
         ui.cancelButton.isVisible = false
         ui.openButton.isVisible = true
         ui.saveButton.isVisible = true
 
         val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(attachmentUri, attachmentMime)
+            setDataAndType(model.downloadedUri!!, attachmentMime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         ui.openButton.isEnabled = viewIntent.resolveActivity(requireContext().packageManager) != null

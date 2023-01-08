@@ -2,11 +2,11 @@ package ru.vizbash.paramail.mail
 
 import android.content.Context
 import android.util.Log
+import androidx.room.withTransaction
 import com.sun.mail.imap.IMAPStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import ru.vizbash.paramail.BuildConfig
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.account.FolderEntity
 import ru.vizbash.paramail.storage.account.MailAccount
@@ -14,7 +14,6 @@ import ru.vizbash.paramail.storage.account.MailData
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
-import javax.mail.MessagingException
 import javax.mail.Session
 import javax.mail.Transport
 
@@ -34,7 +33,7 @@ class MailService @Inject constructor(
         newProps["mail.smtp.port"] = smtpData.port
 
         val session = Session.getInstance(newProps)
-        session.debug = BuildConfig.DEBUG
+//        session.debug = BuildConfig.DEBUG
 
         val transport = session.getTransport("smtp")
         if (smtpData.creds != null) {
@@ -53,7 +52,7 @@ class MailService @Inject constructor(
         requireNotNull(imapData.creds)
 
         val session = Session.getInstance(props)
-        session.debug = BuildConfig.DEBUG
+//        session.debug = BuildConfig.DEBUG
 
         val store = session.getStore("imap")
         store.connect(
@@ -77,26 +76,31 @@ class MailService @Inject constructor(
         db.accountDao().insert(account)
     }
 
-//    suspend fun getAccountById(accountId: Int) = db.accountDao().getById(accountId)
+    suspend fun getFolderService(accountId: Int, folderName: String): FolderService {
+        downloadFolderList(accountId)
 
-    suspend fun getFolderService(accountId: Int, folderId: Int): FolderService {
         val account = db.accountDao().getById(accountId)!!
-        val folder = db.accountDao().getFolderById(folderId)!!
+        val folder = db.accountDao().getFolderByName(folderName, accountId)!!
 
         return FolderService(account, db, this, context, folder)
     }
 
-    suspend fun listFolders(accountId: Int): List<FolderEntity> = withContext(Dispatchers.IO) {
+    private suspend fun downloadFolderList(accountId: Int) = withContext(Dispatchers.IO) {
         val account = db.accountDao().getById(accountId)!!
 
-        try {
-            connectImap(account.props, account.imap).use { store ->
-                val folders = store.defaultFolder.list().map { FolderEntity(0, account.id, it.name) }
-                db.accountDao().insertFolders(folders)
-                return@withContext folders
+        db.withTransaction {
+            if (db.accountDao().getFolders(account.id).isEmpty()) {
+                connectImap(account.props, account.imap).use { store ->
+                    val folders =
+                        store.defaultFolder.list().map { FolderEntity(0, account.id, it.name) }
+                    db.accountDao().insertFolders(folders)
+                }
             }
-        } catch (e: MessagingException) {
-            return@withContext db.accountDao().getFolders(accountId)
         }
+    }
+
+    suspend fun listFolders(accountId: Int): List<FolderEntity> = withContext(Dispatchers.IO) {
+        downloadFolderList(accountId)
+        return@withContext db.accountDao().getFolders(accountId)
     }
 }
