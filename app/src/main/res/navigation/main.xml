@@ -14,12 +14,6 @@
         <action
             android:id="@+id/action_gettingStartedFragment_to_accountSetupWizardFragment"
             app:destination="@id/accountSetupWizardFragment" />
-        <action
-            android:id="@+id/action_gettingStartedFragment_to_messageListFragment"
-            app:destination="@id/messageListFragment"
-            app:popUpTo="@id/nav_graph"
-            app:launchSingleTop="true"
-            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment

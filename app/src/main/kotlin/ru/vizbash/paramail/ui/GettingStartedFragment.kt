@@ -19,7 +19,6 @@ import ru.vizbash.paramail.ui.messagelist.MessageListFragment
 
 @AndroidEntryPoint
 class GettingStartedFragment : Fragment() {
-    private val mainModel: MainViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -36,21 +35,5 @@ class GettingStartedFragment : Fragment() {
         addButton.setOnClickListener {
             findNavController().navigate(R.id.action_gettingStartedFragment_to_accountSetupWizardFragment)
         }
-
-        val accountList = runBlocking(Dispatchers.Default) {
-            mainModel.accountList.first()
-        }
-        if (accountList.isEmpty()) {
-            return
-        }
-
-        val prefs = requireActivity().getPreferences(Context.MODE_PRIVATE)
-        val accountId = prefs.getInt(MainActivity.KEY_LAST_ACCOUNT_ID, accountList.first().id)
-        val lastFolderName = prefs.getString(MainActivity.KEY_LAST_FOLDER_NAME, MainActivity.DEFAULT_FOLDER)
-
-        findNavController().navigate(R.id.action_gettingStartedFragment_to_messageListFragment, bundleOf(
-            MessageListFragment.ARG_ACCOUNT_ID to accountId,
-            MessageListFragment.ARG_FOLDER_NAME to lastFolderName,
-        ))
     }
 }

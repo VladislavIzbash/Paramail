@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import ru.vizbash.paramail.mail.ComposedMessage
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.account.FolderEntity
-import ru.vizbash.paramail.storage.account.MailAccount
 import javax.inject.Inject
 
 private const val MESSAGE_SEND_DELAY_MS = 4000L
@@ -39,9 +38,13 @@ class MainViewModel @Inject constructor(
     private val _folderList = MutableStateFlow(listOf<FolderEntity>())
     val folderList = _folderList.asStateFlow()
 
-    fun switchAccount(accountId: Int) {
+    fun updateFolderList(accountId: Int) {
         viewModelScope.launch {
-            _folderList.value = mailService.listFolders(accountId)
+            try {
+                _folderList.value = mailService.listFolders(accountId)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
