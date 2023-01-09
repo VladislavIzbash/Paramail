@@ -23,12 +23,12 @@ class AttachmentDialogFragment(
     private val ui get() = _ui!!
 
     private val attachmentMime = attachment.mime.split(';').first()
-    private lateinit var createDocumentLauncher: ActivityResultLauncher<String>
+    private lateinit var saveAttachmentLauncher: ActivityResultLauncher<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        createDocumentLauncher = registerForActivityResult(CreateDocument(attachmentMime)) { saveUri ->
+        saveAttachmentLauncher = registerForActivityResult(CreateDocument(attachmentMime)) { saveUri ->
             if (saveUri == null) {
                 return@registerForActivityResult
             }
@@ -43,9 +43,6 @@ class AttachmentDialogFragment(
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _ui = DialogAttachmentBinding.inflate(layoutInflater)
 
-//        val attachmentUri = model.getAttachmentUri(attachment)
-
-//        if (attachmentUri == null) {
         ui.name.text = getString(R.string.downloading, attachment.fileName)
         ui.cancelButton.isVisible = true
         ui.downloadProgress.isVisible = true
@@ -70,10 +67,6 @@ class AttachmentDialogFragment(
                 }
             }
         }
-//        } else {
-//            ui.downloadProgress.isVisible = false
-//            onDownloadFinished(attachmentUri)
-//        }
 
         return object : Dialog(requireContext()) {
             override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,7 +93,7 @@ class AttachmentDialogFragment(
         }
 
         ui.saveButton.setOnClickListener {
-            createDocumentLauncher.launch(attachment.fileName)
+            saveAttachmentLauncher.launch(attachment.fileName)
             dismiss()
         }
     }

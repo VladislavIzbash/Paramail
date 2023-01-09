@@ -19,7 +19,9 @@ import androidx.navigation.NavOptions
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.*
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.ActivityMainBinding
@@ -79,6 +81,8 @@ class MainActivity : AppCompatActivity() {
                 menuSwitchFolder(ui.navigationView.menu, accountId, folderName)
             }
         }
+
+        lifecycleScope.launch { observeMessageSend() }
 
         drawerInit()
     }
@@ -242,6 +246,30 @@ class MainActivity : AppCompatActivity() {
                     .apply {
                         setIcon(R.drawable.ic_add)
                     }
+            }
+        }
+    }
+
+    private suspend fun observeMessageSend() {
+        repeatOnLifecycle(Lifecycle.State.STARTED) {
+            model.messageSendState.filterNotNull().collect {
+                when (it) {
+                    is MessageSendState.AboutToSend -> {
+                        Snackbar.make(
+                            ui.root,
+                            getString(R.string.message_will_be_sent, it.delayMs / 1000),
+                            it.delayMs.toInt(),
+                        ).setAction(R.string.cancel) {
+                            model.cancelMessageSend()
+                        }.show()
+                    }
+                    MessageSendState.Sent -> {
+                        Snackbar.make(ui.root, R.string.message_sent, Snackbar.LENGTH_SHORT).show()
+                    }
+                    MessageSendState.Error -> {
+                        Snackbar.make(ui.root, R.string.message_send_error, Snackbar.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
     }

@@ -10,12 +10,11 @@ import androidx.room.Update
 @Dao
 interface MessageDao {
     @Query(
-        "SELECT m.* FROM messages m " +
-        "JOIN folders f ON m.folder_id = f.id " +
-        "WHERE m.account_id = :accountId AND f.name = :folderName " +
+        "SELECT * FROM messages " +
+        "WHERE account_id = :accountId AND folder_id = :folderId " +
         "ORDER BY msgnum DESC"
     )
-    fun getAllPaged(accountId: Int, folderName: String): PagingSource<Int, Message>
+    fun getAllPaged(accountId: Int, folderId: Int): PagingSource<Int, Message>
 
     @Query("DELETE FROM messages")
     suspend fun clearAll()

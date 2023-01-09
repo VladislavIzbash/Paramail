@@ -23,13 +23,13 @@
     <string name="no_accounts">У вас пока нет аккаунтов</string>
     <string name="add_account"><u>Добавить аккаунт</u></string>
     <string name="getting_started">Начало работы</string>
-    <string name="loading_messages">Загрузка сообщений…</string>
+    <string name="loading_messages">Загрузка писем…</string>
     <string name="forward">Переслать</string>
     <string name="reply">Ответить</string>
     <string name="loading">Загрузка…</string>
     <string name="reply_all">Ответить всем</string>
-    <string name="failed_to_show_message">Сообщение имеет неподдерживаемый формат</string>
-    <string name="search_messages">Поиск по сообщениям</string>
+    <string name="failed_to_show_message">Письмо имеет неподдерживаемый формат</string>
+    <string name="search_messages">Поиск по письмам</string>
     <string name="sort">Сортировать</string>
     <string-array name="size_units">
         <item>Б</item>
@@ -42,10 +42,20 @@
     <string name="cancel">Отмена</string>
     <string name="downloading">Загрузка %1$s</string>
     <string name="downloaded">%1$s загружен</string>
-    <string name="error_loading_message_list">Ошибка загрузки списка сообщений</string>
-    <string name="error_loading_message">Ошибка загрузки сообщения</string>
+    <string name="error_loading_message_list">Ошибка загрузки списка писем</string>
+    <string name="error_loading_message">Ошибка загрузки письма</string>
     <string name="try_again">Повторить</string>
     <string name="settings">Настройки</string>
     <string name="inbox">Входящие</string>
     <string name="search_is_not_supported">Сервер не поддерживает поиск</string>
+    <string name="subject">Тема:</string>
+    <string name="composer_to">Кому:</string>
+    <string name="composer_cc">Копия:</string>
+    <string name="composer_subject">Тема:</string>
+    <string name="composer_attachments">Вложения:</string>
+    <string name="add">Добавить</string>
+    <string name="send">Отправить</string>
+    <string name="message_will_be_sent">Письмо будет отправлено через %1$d сек.</string>
+    <string name="message_sent">Письмо отправлено</string>
+    <string name="message_send_error">Ошибка отправки письма</string>
 </resources>

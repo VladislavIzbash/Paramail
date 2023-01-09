@@ -23,6 +23,7 @@ import ru.vizbash.paramail.databinding.FragmentMessageListBinding
 import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.ui.MainActivity
 import ru.vizbash.paramail.ui.MainViewModel
+import ru.vizbash.paramail.ui.MessageComposerFragment
 import ru.vizbash.paramail.ui.messageview.MessageViewFragment
 import ru.vizbash.paramail.ui.SearchState
 
@@ -39,17 +40,6 @@ class MessageListFragment : Fragment() {
     private val model: MessageListModel by viewModels()
     private val mainModel: MainViewModel by activityViewModels()
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        setFragmentResultListener(MessageViewFragment.RESULT_KEY) { _, bundle ->
-            if (bundle.getBoolean(MessageViewFragment.RESULT_ERROR_KEY)) {
-                Snackbar.make(ui.root, R.string.error_loading_message, Snackbar.LENGTH_SHORT)
-                    .show()
-            }
-        }
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -65,6 +55,13 @@ class MessageListFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        ui.composeMessageButton.setOnClickListener {
+            val args = bundleOf(
+                MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
+            )
+            findNavController().navigate(R.id.action_messageListFragment_to_messageComposerFragment, args)
+        }
+
         ui.messageList.addItemDecoration(DividerItemDecoration(
             requireContext(),
             DividerItemDecoration.VERTICAL,

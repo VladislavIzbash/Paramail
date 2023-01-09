@@ -19,18 +19,19 @@ class MessageViewModel @Inject constructor(
     mailService: MailService,
     savedState: SavedStateHandle,
 ) : ViewModel() {
-    private val folderService = viewModelScope.async {
-        val accountId = savedState.get<Int>(MessageViewFragment.ARG_ACCOUNT_ID)!!
+    val accountId = savedState.get<Int>(MessageViewFragment.ARG_ACCOUNT_ID)!!
+    val messageId = savedState.get<Int>(MessageViewFragment.ARG_MESSAGE_ID)!!
+
+    private val messageService = viewModelScope.async {
         val folderName = savedState.get<String>(MessageViewFragment.ARG_FOLDER_NAME)!!
-        mailService.getFolderService(accountId, folderName)
+        mailService.getmessageService(accountId, folderName)
     }
 
     val message = viewModelScope.async {
-        val msgId = savedState.get<Int>(MessageViewFragment.ARG_MESSAGE_ID)!!
-        folderService.await().getById(msgId)!!
+        messageService.await().getById(messageId)!!
     }
     val messageBody = viewModelScope.async {
-        folderService.await().getMessageBody(message.await())
+        messageService.await().getMessageBody(message.await())
     }
 
     private val _downloadProgress = MutableStateFlow(0F)
@@ -43,7 +44,7 @@ class MessageViewModel @Inject constructor(
     fun startDownload(attachment: Attachment) {
         downloadJob?.cancel()
         downloadJob = viewModelScope.launch {
-            downloadedUri = folderService.await().downloadAttachment(attachment) {
+            downloadedUri = messageService.await().downloadAttachment(attachment) {
                 _downloadProgress.value = it
             }
         }

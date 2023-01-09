@@ -14,8 +14,14 @@ import ru.vizbash.paramail.storage.account.MailData
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.mail.Folder
+import javax.mail.Message.RecipientType
 import javax.mail.Session
 import javax.mail.Transport
+import javax.mail.internet.InternetAddress
+import javax.mail.internet.MimeBodyPart
+import javax.mail.internet.MimeMessage
+import javax.mail.internet.MimeMultipart
 
 private const val TAG = "MailService"
 
@@ -27,7 +33,7 @@ class MailService @Inject constructor(
     suspend fun connectSmtp(
         props: Properties,
         smtpData: MailData,
-    ): Transport = withContext(Dispatchers.IO) {
+    ): Pair<Session, Transport> = withContext(Dispatchers.IO) {
         val newProps = Properties(props)
         newProps["mail.smtp.host"] = smtpData.host
         newProps["mail.smtp.port"] = smtpData.port
@@ -42,7 +48,7 @@ class MailService @Inject constructor(
             transport.connect()
         }
 
-        transport
+        Pair(session, transport)
     }
 
     suspend fun connectImap(
@@ -76,13 +82,13 @@ class MailService @Inject constructor(
         db.accountDao().insert(account)
     }
 
-    suspend fun getFolderService(accountId: Int, folderName: String): FolderService {
+    suspend fun getmessageService(accountId: Int, folderName: String): MessageService {
         downloadFolderList(accountId)
 
         val account = db.accountDao().getById(accountId)!!
         val folder = db.accountDao().getFolderByName(folderName, accountId)!!
 
-        return FolderService(account, db, this, context, folder)
+        return MessageService(account, db, this, context, folder)
     }
 
     private suspend fun downloadFolderList(accountId: Int) = withContext(Dispatchers.IO) {
@@ -102,5 +108,71 @@ class MailService @Inject constructor(
     suspend fun listFolders(accountId: Int): List<FolderEntity> = withContext(Dispatchers.IO) {
         downloadFolderList(accountId)
         return@withContext db.accountDao().getFolders(accountId)
+    }
+
+    suspend fun getMessageById(id: Int) = db.messageDao().getById(id)
+
+    suspend fun sendMessage(message: ComposedMessage, accountId: Int) = withContext(Dispatchers.IO) {
+        val account = db.accountDao().getById(accountId)!!
+        val (session, transport) = connectSmtp(account.props, account.smtp)
+
+        val outMsg = if (message.type != MessageType.DEFAULT) {
+            connectImap(account.props, account.imap).use { store ->
+                val folderName = db.accountDao().getFolderById(message.origMsg!!.folderId)!!.name
+                val folder = store.defaultFolder.getFolder(folderName)
+                folder.open(Folder.READ_ONLY)
+                folder.use {
+                    val origMsg = it.getMessage(message.origMsg.msgNum)
+
+                    when (message.type) {
+                        MessageType.REPLY, MessageType.REPLY_TO_ALL -> {
+                            origMsg.reply(message.type == MessageType.REPLY_TO_ALL).apply {
+                                setFrom(InternetAddress(account.imap.creds!!.login))
+                            }
+                        }
+                        MessageType.FORWARD -> TODO()
+                        else -> throw IllegalStateException()
+                    }
+                }
+            }
+        } else {
+            MimeMessage(session).apply {
+                setFrom(InternetAddress(account.imap.creds!!.login))
+                setRecipient(RecipientType.TO, InternetAddress(message.to))
+                setRecipients(RecipientType.CC, message.cc.map(::InternetAddress).toTypedArray())
+                subject = message.subject
+            }
+        }
+
+        if (message.attachments.isNotEmpty()) {
+            val content = MimeMultipart("mixed")
+
+            val textPart = MimeBodyPart().apply {
+                setContent(message.text, "text/plain")
+            }
+            content.addBodyPart(textPart)
+
+            for ((uri, fileName) in message.attachments) {
+                val type = context.contentResolver.getType(uri) ?: "application/octet-stream"
+
+                val attachmentPart = MimeBodyPart()
+                attachmentPart.fileName = fileName
+
+                context.contentResolver.openInputStream(uri)!!.use {
+                    attachmentPart.setContent(it.readBytes(), type)
+                }
+
+                content.addBodyPart(attachmentPart)
+            }
+
+            outMsg.setContent(content)
+        } else {
+            outMsg.setText(message.text)
+        }
+
+        outMsg.saveChanges()
+        transport.sendMessage(outMsg, outMsg.allRecipients)
+
+        Log.d(TAG, "${account.imap.creds!!.login}: sent message to ${message.to} (subject: ${message.subject})")
     }
 }

@@ -38,16 +38,29 @@
         <action
             android:id="@+id/action_messageListFragment_to_messageViewFragment"
             app:destination="@id/messageViewFragment" />
+        <action
+            android:id="@+id/action_messageListFragment_to_messageComposerFragment"
+            app:destination="@id/messageComposerFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/messageViewFragment"
         android:name="ru.vizbash.paramail.ui.messageview.MessageViewFragment"
         android:label="fragment_message_view"
-        tools:layout="@layout/fragment_message_view" />
+        tools:layout="@layout/fragment_message_view" >
+        <action
+            android:id="@+id/action_messageViewFragment_to_messageComposerFragment"
+            app:destination="@id/messageComposerFragment" />
+    </fragment>
 
     <action
         android:id="@+id/action_global_accountSetupWizardFragment"
         app:destination="@id/accountSetupWizardFragment" />
+
+    <fragment
+        android:id="@+id/messageComposerFragment"
+        android:name="ru.vizbash.paramail.ui.MessageComposerFragment"
+        android:label="Новое сообщение"
+        tools:layout="@layout/fragment_message_composer" />
 
 </navigation>

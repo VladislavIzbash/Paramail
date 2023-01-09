@@ -19,11 +19,7 @@ import ru.vizbash.paramail.storage.message.Attachment
 import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.storage.message.MessageBody
 import java.io.File
-import javax.mail.BodyPart
-import javax.mail.Flags
-import javax.mail.Folder
-import javax.mail.Message.RecipientType
-import javax.mail.MessagingException
+import javax.mail.*
 import javax.mail.internet.InternetAddress
 import javax.mail.internet.MimeMultipart
 import javax.mail.internet.MimeUtility
@@ -32,11 +28,11 @@ import javax.mail.search.FromStringTerm
 import javax.mail.search.OrTerm
 import javax.mail.search.SubjectTerm
 
-private const val TAG = "FolderService"
+private const val TAG = "MessageService"
 private const val DOWNLOAD_BLOCK_SIZE = 16000
 private const val ATTACHMENTS_DIR = "attachments"
 
-class FolderService(
+class MessageService(
     private val account: MailAccount,
     private val db: MailDatabase,
     private val mailService: MailService,
@@ -51,15 +47,17 @@ class FolderService(
                 }
 
                 Log.d(TAG, "${account.imap.creds!!.login}: opened folder ${folderEntity.name}")
-
-                folder.use {
+                val ret = folder.use {
                     block(it as IMAPFolder)
                 }
+                Log.d(TAG, "${account.imap.creds.login}: closed folder ${folderEntity.name}")
+
+                ret
             }
         }
     }
 
-    val storedMessages get() = db.messageDao().getAllPaged(account.id, folderEntity.name)
+    val storedMessages get() = db.messageDao().getAllPaged(account.id, folderEntity.id)
 
     private fun convertToEntity(msg: javax.mail.Message, folderId: Int): Message? {
         if (msg.allRecipients == null || msg.subject == null) {
@@ -74,7 +72,7 @@ class FolderService(
             accountId = account.id,
             folderId = folderId,
             subject = msg.subject,
-            recipients = msg.getRecipients(RecipientType.TO).map {
+            recipients = msg.allRecipients.map {
                 val addr = it as InternetAddress
                 if (addr.personal.isEmpty()) {
                     addr.address
@@ -230,8 +228,9 @@ class FolderService(
                 val remoteMsg = folder.getMessage(message.msgNum)
 
                 val attachments = extractAttachments(remoteMsg, message.id)
-                val body = extractTextBody(remoteMsg, message.id)
-                    ?: return@useFolder Pair(null, attachments)
+
+                val textPart = findTextPart(remoteMsg) ?: return@useFolder Pair(null, attachments)
+                val body = MessageBody(message.id, textPart.inputStream.readBytes(), textPart.contentType)
 
                 db.withTransaction {
                     db.messageDao().insertBody(body)
@@ -277,38 +276,16 @@ class FolderService(
             }
     }
 
-    private fun extractTextBody(msg: javax.mail.Message, msgId: Int): MessageBody? {
-        val (content, contentType) = when {
-            msg.contentType.startsWith("text/") -> {
-                Pair(msg.inputStream.readBytes(), msg.contentType)
-            }
-            msg.contentType.startsWith("multipart/") -> {
-                findTextPartInMultipart(msg.content as MimeMultipart, msg.contentType)?.let {
-                    Pair(it.inputStream.readBytes(), it.contentType)
-                } ?: return null
-            }
-            else -> return null
-        }
-
-        return MessageBody(msgId, content, contentType)
-    }
-
-    private fun findTextPart(part: BodyPart): BodyPart? {
+    private fun findTextPart(part: Part): Part? {
         return when {
             part.contentType.startsWith("text/") -> part
-            part.contentType.startsWith("multipart/") -> {
-                findTextPartInMultipart(part.content as MimeMultipart, part.contentType)
+            part.contentType.startsWith("multipart/mixed") || part.contentType.startsWith("multipart/related") -> {
+                // В mixed первой идёт основная часть
+                findTextPart((part.content as MimeMultipart).getBodyPart(0))
             }
-            else -> null
-        }
-    }
-
-    private fun findTextPartInMultipart(multipart: MimeMultipart, contentType: String): BodyPart? {
-        return when {
-            contentType.startsWith("multipart/mixed") || contentType.startsWith("multipart/related") -> {
-                findTextPart(multipart.getBodyPart(0))
-            }
-            contentType.startsWith("multipart/alternative") -> {
+            part.contentType.startsWith("multipart/alternative") -> {
+                val multipart = part.content as MimeMultipart
+                // В alternative предпочтительный вариант идёт последним
                 findTextPart(multipart.getBodyPart(multipart.count - 1))
             }
             else -> null

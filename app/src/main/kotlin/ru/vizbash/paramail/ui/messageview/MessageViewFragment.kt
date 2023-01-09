@@ -24,6 +24,7 @@ import androidx.fragment.app.setFragmentResult
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
@@ -31,6 +32,7 @@ import ru.vizbash.paramail.databinding.AttachmentBinding
 import ru.vizbash.paramail.databinding.FragmentMessageViewBinding
 import ru.vizbash.paramail.storage.message.Attachment
 import ru.vizbash.paramail.storage.message.MessageBody
+import ru.vizbash.paramail.ui.MessageComposerFragment
 import java.text.DecimalFormat
 import kotlin.math.log10
 import kotlin.math.pow
@@ -42,9 +44,6 @@ class MessageViewFragment : Fragment() {
         const val ARG_ACCOUNT_ID = "account_id"
         const val ARG_FOLDER_NAME = "folder_name"
         const val ARG_MESSAGE_ID = "message_id"
-
-        const val RESULT_KEY = "view_result"
-        const val RESULT_ERROR_KEY = "error"
     }
 
     private var _ui: FragmentMessageViewBinding? = null
@@ -85,6 +84,14 @@ class MessageViewFragment : Fragment() {
         val actionBar = (requireActivity() as AppCompatActivity).supportActionBar
         actionBar?.setTitle(R.string.loading)
 
+        ui.replyButton.setOnClickListener {
+            val args = bundleOf(
+                MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
+                MessageComposerFragment.ARG_REPLY_TO_MSG_ID to model.messageId,
+            )
+            findNavController().navigate(R.id.action_messageViewFragment_to_messageComposerFragment, args)
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val msg = model.message.await()
@@ -111,7 +118,12 @@ class MessageViewFragment : Fragment() {
                 inflateAttachments(attachments)
             } catch (e: Exception) {
                 e.printStackTrace()
-                setFragmentResult(RESULT_KEY, bundleOf(RESULT_ERROR_KEY to true))
+
+                Snackbar.make(
+                    requireActivity().findViewById(android.R.id.content),
+                    R.string.error_loading_message,
+                    Snackbar.LENGTH_SHORT,
+                ).show()
                 findNavController().popBackStack()
             }
 
@@ -134,7 +146,7 @@ class MessageViewFragment : Fragment() {
         ui.attachmentDivider.isVisible = attachments.isNotEmpty()
 
         for (attachment in attachments) {
-            val binding = AttachmentBinding.inflate(layoutInflater, ui.attachmentLayout, true)
+            val binding = AttachmentBinding.inflate(layoutInflater, ui.attachmentGroup, true)
 
             binding.fileName.text = attachment.fileName
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

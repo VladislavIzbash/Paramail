@@ -55,14 +55,14 @@
         android:layout_width="match_parent"
         android:layout_height="2dp" />
 
-    <com.google.android.flexbox.FlexboxLayout
-        android:id="@+id/attachmentLayout"
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/attachment_group"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="3dp"
-        app:flexWrap="wrap">
+        app:chipSpacing="5dp"
+        android:padding="5dp">
 
-    </com.google.android.flexbox.FlexboxLayout>
+    </com.google.android.material.chip.ChipGroup>
 
     <com.google.android.material.divider.MaterialDivider
         android:id="@+id/attachment_divider"
