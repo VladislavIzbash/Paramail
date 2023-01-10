@@ -4,14 +4,10 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.FileProvider
-import androidx.paging.*
 import androidx.room.withTransaction
 import com.sun.mail.iap.CommandFailedException
 import com.sun.mail.imap.IMAPFolder
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
+import kotlinx.coroutines.*
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.account.FolderEntity
 import ru.vizbash.paramail.storage.account.MailAccount
@@ -19,7 +15,9 @@ import ru.vizbash.paramail.storage.message.Attachment
 import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.storage.message.MessageBody
 import java.io.File
+import java.lang.Integer.max
 import javax.mail.*
+import javax.mail.Message.RecipientType
 import javax.mail.internet.InternetAddress
 import javax.mail.internet.MimeMultipart
 import javax.mail.internet.MimeUtility
@@ -27,18 +25,30 @@ import javax.mail.search.BodyTerm
 import javax.mail.search.FromStringTerm
 import javax.mail.search.OrTerm
 import javax.mail.search.SubjectTerm
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
 private const val TAG = "MessageService"
 private const val DOWNLOAD_BLOCK_SIZE = 16000
 private const val ATTACHMENTS_DIR = "attachments"
+private const val FETCH_COUNT = 30
+
+private val FETCH_PROFILE = FetchProfile().apply {
+    add(FetchProfile.Item.ENVELOPE)
+    add(FetchProfile.Item.FLAGS)
+    add("Newsgroups")
+}
 
 class MessageService(
     private val account: MailAccount,
     private val db: MailDatabase,
     private val mailService: MailService,
     private val context: Context,
+    private val coroutineScope: CoroutineScope,
     val folderEntity: FolderEntity,
 ) {
+    private var fetchJob: Job? = null
+
     private suspend inline fun <R> useFolder(crossinline block: suspend (IMAPFolder) -> R): R {
         return withContext(Dispatchers.IO) {
             mailService.connectImap(account.props, account.imap).use { store ->
@@ -59,7 +69,23 @@ class MessageService(
 
     val storedMessages get() = db.messageDao().getAllPaged(account.id, folderEntity.id)
 
-    private fun convertToEntity(msg: javax.mail.Message, folderId: Int): Message? {
+    private fun getAllRecipients(msg: javax.mail.Message): List<String> {
+        return sequenceOf(RecipientType.TO, RecipientType.CC, RecipientType.BCC)
+            .mapNotNull(msg::getRecipients)
+            .flatMap {
+                it.map {
+                    val addr = it as InternetAddress
+                    if (addr.personal.isNullOrEmpty()) {
+                        addr.address
+                    } else {
+                        "${addr.personal} <${addr.address}>"
+                    }
+                }
+            }
+            .toList()
+    }
+
+    private fun convertToEntity(msg: javax.mail.Message): Message? {
         if (msg.allRecipients == null || msg.subject == null) {
             return null
         }
@@ -70,93 +96,70 @@ class MessageService(
             id = 0,
             msgNum = msg.messageNumber,
             accountId = account.id,
-            folderId = folderId,
+            folderId = folderEntity.id,
             subject = msg.subject,
-            recipients = msg.allRecipients.map {
-                val addr = it as InternetAddress
-                if (addr.personal.isEmpty()) {
-                    addr.address
-                } else {
-                    "${addr.personal} <${addr.address}>"
-                }
-            },
+            recipients = getAllRecipients(msg),
             from = from.address,
             date = msg.receivedDate,
             isUnread = !msg.isSet(Flags.Flag.SEEN),
         )
     }
 
-    @OptIn(ExperimentalPagingApi::class)
-    val remoteMediator get() = object : RemoteMediator<Int, Message>() {
+    private suspend fun downloadMessageRange(folder: IMAPFolder, startNum: Int, endNum: Int) {
+        for (msgNum in endNum downTo startNum step FETCH_COUNT) {
+            val pageStart = max(msgNum - FETCH_COUNT, startNum)
 
-        override suspend fun initialize(): InitializeAction {
-            return try {
-                useFolder { folder ->
-                    val hasNewMsgs = folder.hasNewMessages()
-                    val hasCachedMsgs = db.messageDao().getMessageCount() > 0
+            Log.d(TAG, "fetching messages from $pageStart to $msgNum")
 
-                    if (!hasCachedMsgs || hasNewMsgs) {
-                        InitializeAction.LAUNCH_INITIAL_REFRESH
-                    } else {
-                        InitializeAction.SKIP_INITIAL_REFRESH
-                    }
-                }
-            } catch (e: MessagingException) {
-                InitializeAction.LAUNCH_INITIAL_REFRESH
-            }
+            val page = folder.getMessages(pageStart, msgNum)
+            folder.fetch(page, FETCH_PROFILE)
+
+            val entities = page.mapNotNull(this@MessageService::convertToEntity)
+            db.messageDao().insertAll(entities)
+        }
+    }
+
+    fun startMessageListUpdate() {
+        if (fetchJob != null) {
+            return
         }
 
-        override suspend fun load(
-            loadType: LoadType,
-            state: PagingState<Int, Message>,
-        ): MediatorResult {
-            return try {
+        fetchJob = coroutineScope.launch {
+            try {
                 useFolder { folder ->
-                    val startNum = when (loadType) {
-                        LoadType.REFRESH -> folder.messageCount
-                        LoadType.PREPEND -> return@useFolder MediatorResult.Success(true)
-                        LoadType.APPEND -> state.lastItemOrNull()?.msgNum ?: folder.messageCount
+                    Log.d(TAG, "starting message list update for folder ${folderEntity.name}")
+
+                    val localOldest = db.messageDao().getOldest(account.id, folderEntity.id)?.msgNum
+                    if (localOldest == null || localOldest > 1) {
+                        Log.d(TAG, "downloading history for folder ${folderEntity.name}")
+                        downloadMessageRange(folder, 1, localOldest ?: folder.messageCount)
                     }
 
-                    val pageSize = state.config.pageSize
+                    val localRecent = db.messageDao().getMostRecent(account.id, folderEntity.id)
+                    val remoteRecent = folder.getMessage(folder.messageCount - 1)
 
-                    Log.d(TAG, "${account.imap.creds!!.login}: fetching $pageSize messages from $folder starting from page $startNum")
-
-                    val reachedEnd = startNum - pageSize <= 0
-                    if (!reachedEnd) {
-                        val messages = folder.getMessages(startNum - pageSize + 1, startNum)
-                            .filter { it.allRecipients != null && it.subject != null }
-                            .reversed()
-                            .mapNotNull { convertToEntity(it, folderEntity.id) }
-
-                        if (loadType == LoadType.REFRESH) {
-                            db.messageDao().clearAll()
-                        }
-                        db.messageDao().insertAll(messages)
+                    if (remoteRecent.messageNumber == localRecent?.msgNum) {
+                        Log.d(TAG, "${folderEntity.name} already up to date")
+                        return@useFolder
                     }
 
-                    MediatorResult.Success(reachedEnd)
+                    val endNum = remoteRecent.messageNumber
+                    val startNum = localRecent?.msgNum ?: 1
+                    downloadMessageRange(folder, startNum, endNum)
                 }
             } catch (e: MessagingException) {
-                MediatorResult.Error(e)
+                e.printStackTrace()
+                Log.d(TAG, "error fetching messages, retrying in 10 secs")
+
+                delay(10.toDuration(DurationUnit.SECONDS))
+
+                fetchJob = null
+                startMessageListUpdate()
             }
         }
     }
 
     suspend fun getById(messageId: Int) = db.messageDao().getById(messageId)
-
-//    fun getAttachmentUri(attachment: Attachment): Uri? {
-//        val file = File("${context.filesDir}/$ATTACHMENTS_DIR/${attachment.id.toUInt()})")
-//        if (!file.exists()) {
-//            return null
-//        }
-//
-//        return FileProvider.getUriForFile(
-//            context,
-//            "ru.vizbash.paramail.attachmentprovider",
-//            file,
-//        )
-//    }
 
     suspend fun downloadAttachment(
         attachment: Attachment,
@@ -253,7 +256,7 @@ class MessageService(
 
         nums.mapNotNull { msgNum ->
             db.messageDao().getByMsgNum(msgNum as Int)
-                ?: convertToEntity(folder.getMessage(msgNum), 0)
+                ?: convertToEntity(folder.getMessage(msgNum))
         }
     }
 

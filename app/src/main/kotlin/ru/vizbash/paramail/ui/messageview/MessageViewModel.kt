@@ -24,7 +24,7 @@ class MessageViewModel @Inject constructor(
 
     private val messageService = viewModelScope.async {
         val folderName = savedState.get<String>(MessageViewFragment.ARG_FOLDER_NAME)!!
-        mailService.getmessageService(accountId, folderName)
+        mailService.getMessageService(accountId, folderName)
     }
 
     val message = viewModelScope.async {

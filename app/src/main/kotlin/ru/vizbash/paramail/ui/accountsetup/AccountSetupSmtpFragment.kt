@@ -65,8 +65,9 @@ class AccountSetupSmtpFragment : Fragment() {
         val props = Properties()
         props["mail.smtp.auth"] = ui.useAuth.isChecked.toString()
         props["mail.smtp.ssl.enable"] = ui.useSsl.isChecked.toString()
-        props["mail.smtp.connectiontimeout"] = "1000"
-        props["mail.smtp.timeout"] = "1000"
+        props["mail.smtp.connectiontimeout"] = "5000"
+        props["mail.smtp.timeout"] = "5000"
+        props["mail.smtp.writetimeout"] = "5000"
 
         val smtpData = MailData(
             ui.serverInput.text.toString(),

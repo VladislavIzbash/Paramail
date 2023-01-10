@@ -56,9 +56,9 @@ class AccountSetupImapFragment : Fragment() {
 
         val props = Properties()
         props["mail.imap.ssl.enable"] = "true"
-        props["mail.imap.connectiontimeout"] = "1000"
-        props["mail.imap.timeout"] = "1000"
-        props["mail.imap.writetimeout"] = "1000"
+        props["mail.imap.connectiontimeout"] = "5000"
+        props["mail.imap.timeout"] = "5000"
+        props["mail.imap.writetimeout"] = "5000"
 
         val imapData = MailData(
             ui.serverInput.text.toString(),

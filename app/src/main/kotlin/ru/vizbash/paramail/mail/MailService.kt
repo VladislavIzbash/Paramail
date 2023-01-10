@@ -5,8 +5,10 @@ import android.util.Log
 import androidx.room.withTransaction
 import com.sun.mail.imap.IMAPStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ru.vizbash.paramail.BuildConfig
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.account.FolderEntity
 import ru.vizbash.paramail.storage.account.MailAccount
@@ -30,6 +32,8 @@ class MailService @Inject constructor(
     private val db: MailDatabase,
     @ApplicationContext private val context: Context,
 ) {
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
+
     suspend fun connectSmtp(
         props: Properties,
         smtpData: MailData,
@@ -82,13 +86,13 @@ class MailService @Inject constructor(
         db.accountDao().insert(account)
     }
 
-    suspend fun getmessageService(accountId: Int, folderName: String): MessageService {
+    suspend fun getMessageService(accountId: Int, folderName: String): MessageService {
         downloadFolderList(accountId)
 
         val account = db.accountDao().getById(accountId)!!
         val folder = db.accountDao().getFolderByName(folderName, accountId)!!
 
-        return MessageService(account, db, this, context, folder)
+        return MessageService(account, db, this, context, coroutineScope, folder)
     }
 
     private suspend fun downloadFolderList(accountId: Int) = withContext(Dispatchers.IO) {

@@ -54,6 +54,12 @@ class MessageListFragment : Fragment() {
         _ui = null
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        model.startUpdate()
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         ui.composeMessageButton.setOnClickListener {
             val args = bundleOf(
@@ -149,7 +155,7 @@ class MessageListFragment : Fragment() {
             messageAdapter.refresh()
         }
 
-        val messageFlow = this@MessageListFragment.model.messageFlow.await()
+        val messageFlow = this@MessageListFragment.model.pagedMessagesFlow.await()
         messageFlow.collectLatest {
             messageAdapter.submitData(it)
         }

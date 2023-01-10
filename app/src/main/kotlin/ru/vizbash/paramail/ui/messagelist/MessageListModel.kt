@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.message.Message
 import javax.inject.Inject
@@ -19,19 +20,17 @@ class MessageListModel @Inject constructor(
     val folderName = savedState.get<String>(MessageListFragment.ARG_FOLDER_NAME)!!
 
     private val messageService = viewModelScope.async {
-        mailService.getmessageService(accountId, folderName)
+        mailService.getMessageService(accountId, folderName)
     }
 
-    @OptIn(ExperimentalPagingApi::class)
-    val messageFlow = viewModelScope.async {
+    val pagedMessagesFlow = viewModelScope.async {
         val messageService = messageService.await()
 
         val pager = Pager(
             config = PagingConfig(
-                pageSize = 20,
+                pageSize = 30,
                 enablePlaceholders = true,
             ),
-            remoteMediator = messageService.remoteMediator,
         ) {
             messageService.storedMessages
         }
@@ -41,5 +40,11 @@ class MessageListModel @Inject constructor(
 
     suspend fun searchMessages(query: String): List<Message>? {
         return messageService.await().searchMessages(query)
+    }
+
+    fun startUpdate() {
+        viewModelScope.launch {
+            messageService.await().startMessageListUpdate()
+        }
     }
 }

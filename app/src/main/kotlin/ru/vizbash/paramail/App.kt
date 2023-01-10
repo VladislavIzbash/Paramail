@@ -3,6 +3,7 @@ package ru.vizbash.paramail
 import android.app.Application
 import android.webkit.WebView
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.storage.account.AccountDao
 import ru.vizbash.paramail.storage.account.Creds
@@ -29,22 +30,24 @@ class App : Application() {
             val props = Properties()
             props["mail.smtp.auth"] = "true"
             props["mail.smtp.ssl.enable"] = "true"
-            props["mail.smtp.connectiontimeout"] = "1000"
-            props["mail.smtp.timeout"] = "1000"
+            props["mail.smtp.connectiontimeout"] = "5000"
+            props["mail.smtp.timeout"] = "5000"
             props["mail.imap.ssl.enable"] = "true"
-            props["mail.imap.connectiontimeout"] = "1000"
-            props["mail.imap.timeout"] = "1000"
-            props["mail.imap.writetimeout"] = "1000"
+            props["mail.imap.connectiontimeout"] = "5000"
+            props["mail.imap.timeout"] = "5000"
+            props["mail.imap.writetimeout"] = "5000"
 
             val creds = Creds(BuildConfig.LOGIN, BuildConfig.PASSWORD)
 
             runBlocking {
-                accountDao.insert(MailAccount(
-                    1,
-                    props,
-                    MailData(BuildConfig.SMTP_HOST, BuildConfig.SMTP_PORT, creds),
-                    MailData(BuildConfig.IMAP_HOST, BuildConfig.IMAP_PORT, creds),
-                ))
+                if (accountDao.getAll().first().isEmpty()) {
+                    accountDao.insert(MailAccount(
+                        0,
+                        props,
+                        MailData(BuildConfig.SMTP_HOST, BuildConfig.SMTP_PORT, creds),
+                        MailData(BuildConfig.IMAP_HOST, BuildConfig.IMAP_PORT, creds),
+                    ))
+                }
             }
         }
     }

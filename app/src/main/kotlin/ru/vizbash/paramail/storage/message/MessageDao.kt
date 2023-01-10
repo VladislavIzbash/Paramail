@@ -7,17 +7,32 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 
+private const val MESSAGE_SELECT =
+    "SELECT * FROM messages " +
+    "WHERE account_id = :accountId AND folder_id = :folderId " +
+    "ORDER BY msgnum DESC"
+
 @Dao
 interface MessageDao {
-    @Query(
-        "SELECT * FROM messages " +
-        "WHERE account_id = :accountId AND folder_id = :folderId " +
-        "ORDER BY msgnum DESC"
-    )
+    @Query("SELECT * FROM messages " +
+            "WHERE account_id = :accountId AND folder_id = :folderId " +
+            "ORDER BY msgnum DESC")
     fun getAllPaged(accountId: Int, folderId: Int): PagingSource<Int, Message>
 
-    @Query("DELETE FROM messages")
-    suspend fun clearAll()
+    @Query("SELECT * FROM messages " +
+            "WHERE account_id = :accountId AND folder_id = :folderId " +
+            "ORDER BY msgnum DESC " +
+            "LIMIT 1")
+    fun getMostRecent(accountId: Int, folderId: Int): Message?
+
+    @Query("SELECT * FROM messages " +
+            "WHERE account_id = :accountId AND folder_id = :folderId " +
+            "ORDER BY msgnum ASC " +
+            "LIMIT 1")
+    fun getOldest(accountId: Int, folderId: Int): Message?
+
+//    @Query("DELETE FROM messages")
+//    suspend fun clearAll()
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(messages: List<Message>): List<Long>
