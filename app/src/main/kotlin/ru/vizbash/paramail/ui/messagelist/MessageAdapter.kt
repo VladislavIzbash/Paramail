@@ -88,6 +88,7 @@ class ListMessageAdapter : ListAdapter<Message, MessageViewHolder>(DIFF_CALLBACK
     var onMessageClickListener: (Message) -> Unit = {}
 
     var highlightedText: String? = null
+        @SuppressLint("NotifyDataSetChanged")
         set(value) {
             field = value
             notifyDataSetChanged()

@@ -4,11 +4,14 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.core.content.FileProvider
+import androidx.paging.PagingSource
+import androidx.paging.PagingState
 import androidx.room.withTransaction
-import com.sun.mail.iap.CommandFailedException
 import com.sun.mail.imap.IMAPFolder
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.account.FolderEntity
 import ru.vizbash.paramail.storage.account.MailAccount
@@ -22,10 +25,6 @@ import javax.mail.Message.RecipientType
 import javax.mail.internet.InternetAddress
 import javax.mail.internet.MimeMultipart
 import javax.mail.internet.MimeUtility
-import javax.mail.search.BodyTerm
-import javax.mail.search.FromStringTerm
-import javax.mail.search.OrTerm
-import javax.mail.search.SubjectTerm
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -40,6 +39,8 @@ private val FETCH_PROFILE = FetchProfile().apply {
     add("Newsgroups")
 }
 
+enum class FetchState { FETCHING_NEW, FETCHING_OLD, DONE, ERROR }
+
 class MessageService(
     private val account: MailAccount,
     private val db: MailDatabase,
@@ -48,7 +49,12 @@ class MessageService(
     private val coroutineScope: CoroutineScope,
     val folderEntity: FolderEntity,
 ) {
-    private var fetchJob: Job? = null
+    companion object {
+        private var fetchJob: Job? = null // Одна корутина на все папки
+    }
+
+    private val _fetchState = MutableStateFlow(FetchState.DONE)
+    val fetchState = _fetchState.asStateFlow()
 
     private suspend inline fun <R> useFolder(crossinline block: suspend (IMAPFolder) -> R): R {
         return withContext(Dispatchers.IO) {
@@ -68,7 +74,34 @@ class MessageService(
         }
     }
 
-    val storedMessages get() = db.messageDao().getAllPaged(account.id, folderEntity.id)
+    val pagingSource get() = db.messageDao().getAllPaged(account.id, folderEntity.id)
+
+//    val pagingSource: PagingSource<Int, Message>
+//        get() {
+//            val source = db.messageDao().getAllPaged(account.id, folderEntity.id)
+//
+//            return object : PagingSource<Int, Message>() {
+//                init {
+//                    source.registerInvalidatedCallback { invalidate() }
+//                }
+//
+//                override val jumpingSupported get() = source.jumpingSupported
+//                override val keyReuseSupported get() = source.keyReuseSupported
+//
+//                override fun getRefreshKey(state: PagingState<Int, Message>): Int? {
+//                    return source.getRefreshKey(state)
+//                }
+//
+//                override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Message> {
+//                    val result = source.load(params)
+//                    if (result is LoadResult.Page && result.nextKey == null) {
+//                        suspendCancellableCoroutine<Unit> { }
+//                    }
+//                    return result
+//                }
+//
+//            }
+//        }
 
     private fun getAllRecipients(msg: javax.mail.Message): List<String> {
         return sequenceOf(RecipientType.TO, RecipientType.CC, RecipientType.BCC)
@@ -121,14 +154,13 @@ class MessageService(
     }
 
     fun startMessageListUpdate() {
-        if (fetchJob != null) {
-            return
-        }
-
+        fetchJob?.cancel()
         fetchJob = coroutineScope.launch {
             try {
                 useFolder { folder ->
                     Log.d(TAG, "starting message list update for folder ${folderEntity.name}")
+
+                    _fetchState.value = FetchState.FETCHING_OLD
 
                     val localOldest = db.messageDao().getOldest(account.id, folderEntity.id)?.msgNum
                     if (localOldest == null || localOldest > 1) {
@@ -138,11 +170,16 @@ class MessageService(
 
                     if (!folder.hasNewMessages()) {
                         Log.d(TAG, "${folderEntity.name} already up to date")
+                        _fetchState.value = FetchState.DONE
                         return@useFolder
                     }
 
+                    _fetchState.value = FetchState.FETCHING_NEW
+
                     val localRecent = db.messageDao().getMostRecent(account.id, folderEntity.id)
                     downloadMessageRange(folder, localRecent?.msgNum ?: 1, folder.messageCount)
+
+                    _fetchState.value = FetchState.DONE
                 }
             } catch (e: MessagingException) {
                 e.printStackTrace()
@@ -151,6 +188,7 @@ class MessageService(
                 delay(10.toDuration(DurationUnit.SECONDS))
 
                 fetchJob = null
+                _fetchState.value = FetchState.ERROR
                 startMessageListUpdate()
             }
         }
@@ -164,7 +202,7 @@ class MessageService(
     ): Uri? {
         val message = db.messageDao().getById(attachment.msgId)!!
 
-        useFolder { folder ->
+        return useFolder { folder ->
             val remoteMessage = folder.getMessage(message.msgNum)
             val mixed = remoteMessage.content as MimeMultipart
 
@@ -210,10 +248,9 @@ class MessageService(
             } catch (e: CancellationException) {
                 file.delete()
                 Log.d(TAG, "${account.imap.creds.login}: canceled download of ${attachment.fileName}")
+                return@useFolder null
             }
         }
-
-        return null
     }
 
     suspend fun getMessageBody(message: Message): Pair<MessageBody?, List<Attachment>> {
@@ -240,22 +277,6 @@ class MessageService(
             }
         }
     }
-
-//    suspend fun searchMessages(pattern: String): List<Message>? = useFolder { folder ->
-//        val term = OrTerm(arrayOf(FromStringTerm(pattern), SubjectTerm(pattern), BodyTerm(pattern)))
-//        val nums = folder.doCommand { p ->
-//            try {
-//                p.search(term)
-//            } catch (e: CommandFailedException) {
-//                null
-//            }
-//        } as Array<*>? ?: return@useFolder null
-//
-//        nums.mapNotNull { msgNum ->
-//            db.messageDao().getByMsgNum(msgNum as Int)
-//                ?: convertToEntity(folder.getMessage(msgNum))
-//        }
-//    }
 
     fun searchMessages(query: String): Flow<List<Message>> {
         return db.messageDao().searchEnvelopes(account.id, folderEntity.id, "%$query%")

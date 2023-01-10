@@ -34,8 +34,7 @@ class MessageViewModel @Inject constructor(
         messageService.await().getMessageBody(message.await())
     }
 
-    private val _downloadProgress = MutableStateFlow(0F)
-    val downloadProgress = _downloadProgress.asStateFlow()
+    val downloadProgress = MutableStateFlow(0F)
 
     private var downloadJob: Job? = null
 
@@ -45,13 +44,14 @@ class MessageViewModel @Inject constructor(
         downloadJob?.cancel()
         downloadJob = viewModelScope.launch {
             downloadedUri = messageService.await().downloadAttachment(attachment) {
-                _downloadProgress.value = it
+                downloadProgress.value = it
             }
         }
+        // TODO: обработка ошибок
     }
 
     fun cancelDownload() {
         downloadJob?.cancel()
-        _downloadProgress.value = 0F
+        downloadProgress.value = 0F
     }
 }

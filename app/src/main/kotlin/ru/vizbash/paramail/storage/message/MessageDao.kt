@@ -19,10 +19,10 @@ interface MessageDao {
     fun getAllPaged(accountId: Int, folderId: Int): PagingSource<Int, Message>
 
     @Query("$MESSAGE_SELECT ORDER BY msgnum DESC LIMIT 1")
-    fun getMostRecent(accountId: Int, folderId: Int): Message?
+    suspend fun getMostRecent(accountId: Int, folderId: Int): Message?
 
     @Query("$MESSAGE_SELECT ORDER BY msgnum ASC LIMIT 1")
-    fun getOldest(accountId: Int, folderId: Int): Message?
+    suspend fun getOldest(accountId: Int, folderId: Int): Message?
 
     @Query("$MESSAGE_SELECT AND (LOWER(subject) LIKE LOWER(:pattern) OR LOWER(`from`) LIKE LOWER(:pattern)) " +
             "ORDER BY msgnum DESC")

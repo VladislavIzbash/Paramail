@@ -24,7 +24,7 @@ class MessageListModel @Inject constructor(
         mailService.getMessageService(accountId, folderName)
     }
 
-    val pagedMessagesFlow = viewModelScope.async {
+    suspend fun getMessageFlow(): Flow<PagingData<Message>> {
         val messageService = messageService.await()
 
         val pager = Pager(
@@ -33,10 +33,10 @@ class MessageListModel @Inject constructor(
                 enablePlaceholders = true,
             ),
         ) {
-            messageService.storedMessages
+            messageService.pagingSource
         }
 
-        pager.flow.cachedIn(viewModelScope)
+        return pager.flow.cachedIn(viewModelScope)
     }
 
     suspend fun searchMessages(query: String): Flow<List<Message>> {
@@ -48,4 +48,6 @@ class MessageListModel @Inject constructor(
             messageService.await().startMessageListUpdate()
         }
     }
+
+    suspend fun getFetchState() = messageService.await().fetchState
 }

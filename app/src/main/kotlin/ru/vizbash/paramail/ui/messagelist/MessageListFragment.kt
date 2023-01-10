@@ -12,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.paging.LoadState
+import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
 import com.google.android.material.snackbar.Snackbar
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentMessageListBinding
+import ru.vizbash.paramail.mail.FetchState
 import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.ui.MainActivity
 import ru.vizbash.paramail.ui.MainViewModel
@@ -93,13 +95,6 @@ class MessageListFragment : Fragment() {
                             model.searchMessages(state.query).collect {
                                 messageSearchAdapter.submitList(it)
                             }
-
-//                            if (results == null) {
-//                                Snackbar.make(ui.root, R.string.search_is_not_supported, Snackbar.LENGTH_SHORT)
-//                                    .show()
-//                            } else {
-//                                messageSearchAdapter.submitList(results)
-//                            }
                         }
                     }
                 }
@@ -144,7 +139,9 @@ class MessageListFragment : Fragment() {
                 else -> {}
             }
         }
-        ui.messageList.adapter = messageAdapter.withLoadStateFooter(MessageLoadStateAdapter())
+
+        val loadStateAdapter = MessageLoadStateAdapter()
+        ui.messageList.adapter = ConcatAdapter(messageAdapter, loadStateAdapter)
 
         val touchCallback = MessageTouchCallback(ui.root)
         touchCallback.swipeStateListener = { isSwiping ->
@@ -154,12 +151,35 @@ class MessageListFragment : Fragment() {
 
         ui.loadingProgress.isVisible = false
         ui.root.setOnRefreshListener {
-            messageAdapter.refresh()
+            model.startUpdate()
         }
 
-        val messageFlow = this@MessageListFragment.model.pagedMessagesFlow.await()
-        messageFlow.collectLatest {
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                model.getFetchState().collect {
+                    loadStateAdapter.loadState = when (it) {
+                        FetchState.FETCHING_NEW -> LoadState.NotLoading(true)
+                        FetchState.FETCHING_OLD -> {
+                            val hasItems = messageAdapter.itemCount > 0
+
+                            ui.loadingProgress.isVisible = !hasItems
+                            if (hasItems) LoadState.Loading else LoadState.NotLoading(false)
+                        }
+                        FetchState.DONE -> {
+                            ui.root.isRefreshing = false
+                            ui.loadingProgress.isVisible = false
+                            LoadState.NotLoading(true)
+                        }
+                        FetchState.ERROR -> LoadState.Error(Throwable())
+                    }
+                }
+            }
+        }
+
+        model.getMessageFlow().collectLatest {
             messageAdapter.submitData(it)
+            val show = messageAdapter.itemCount > 0 && model.getFetchState().value == FetchState.FETCHING_OLD
+            loadStateAdapter.loadState = if (show) LoadState.Loading else LoadState.NotLoading(false)
         }
     }
 }

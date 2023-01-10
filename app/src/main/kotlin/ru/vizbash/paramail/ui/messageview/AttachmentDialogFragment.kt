@@ -2,6 +2,7 @@ package ru.vizbash.paramail.ui.messageview
 
 import android.app.Dialog
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
@@ -10,6 +11,8 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.DialogAttachmentBinding
@@ -42,6 +45,8 @@ class AttachmentDialogFragment(
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _ui = DialogAttachmentBinding.inflate(layoutInflater)
+
+        model.downloadProgress.value = 0F
 
         ui.name.text = getString(R.string.downloading, attachment.fileName)
         ui.cancelButton.isVisible = true
@@ -83,7 +88,7 @@ class AttachmentDialogFragment(
         ui.saveButton.isVisible = true
 
         val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(model.downloadedUri!!, attachmentMime)
+            setDataAndType(model.downloadedUri, attachmentMime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         ui.openButton.isEnabled = viewIntent.resolveActivity(requireContext().packageManager) != null
