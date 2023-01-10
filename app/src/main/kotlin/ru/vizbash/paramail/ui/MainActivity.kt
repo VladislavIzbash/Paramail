@@ -112,11 +112,15 @@ class MainActivity : AppCompatActivity() {
                 })
                 searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                     override fun onQueryTextSubmit(query: String?): Boolean {
-                        model.searchState.value = SearchState.Searched(query!!)
                         return true
                     }
 
-                    override fun onQueryTextChange(newText: String?) = true
+                    override fun onQueryTextChange(newText: String?): Boolean {
+                        if (!newText.isNullOrEmpty()) {
+                            model.searchState.value = SearchState.Searched(newText)
+                        }
+                        return true
+                    }
                 })
 
                 true

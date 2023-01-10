@@ -6,39 +6,30 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-
-private const val MESSAGE_SELECT =
-    "SELECT * FROM messages " +
-    "WHERE account_id = :accountId AND folder_id = :folderId " +
-    "ORDER BY msgnum DESC"
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MessageDao {
-    @Query("SELECT * FROM messages " +
-            "WHERE account_id = :accountId AND folder_id = :folderId " +
-            "ORDER BY msgnum DESC")
+    companion object {
+        private const val MESSAGE_SELECT = "SELECT * FROM messages " +
+                "WHERE account_id = :accountId AND folder_id = :folderId "
+    }
+
+    @Query("$MESSAGE_SELECT ORDER BY msgnum DESC")
     fun getAllPaged(accountId: Int, folderId: Int): PagingSource<Int, Message>
 
-    @Query("SELECT * FROM messages " +
-            "WHERE account_id = :accountId AND folder_id = :folderId " +
-            "ORDER BY msgnum DESC " +
-            "LIMIT 1")
+    @Query("$MESSAGE_SELECT ORDER BY msgnum DESC LIMIT 1")
     fun getMostRecent(accountId: Int, folderId: Int): Message?
 
-    @Query("SELECT * FROM messages " +
-            "WHERE account_id = :accountId AND folder_id = :folderId " +
-            "ORDER BY msgnum ASC " +
-            "LIMIT 1")
+    @Query("$MESSAGE_SELECT ORDER BY msgnum ASC LIMIT 1")
     fun getOldest(accountId: Int, folderId: Int): Message?
 
-//    @Query("DELETE FROM messages")
-//    suspend fun clearAll()
+    @Query("$MESSAGE_SELECT AND (LOWER(subject) LIKE LOWER(:pattern) OR LOWER(`from`) LIKE LOWER(:pattern)) " +
+            "ORDER BY msgnum DESC")
+    fun searchEnvelopes(accountId: Int, folderId: Int, pattern: String): Flow<List<Message>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(messages: List<Message>): List<Long>
-
-    @Update
-    suspend fun update(message: Message)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertBody(body: MessageBody)
@@ -57,7 +48,4 @@ interface MessageDao {
 
     @Query("SELECT * FROM messages WHERE msgnum = :num")
     suspend fun getByMsgNum(num: Int): Message?
-
-    @Query("SELECT COUNT(*) from messages")
-    suspend fun getMessageCount(): Int
 }

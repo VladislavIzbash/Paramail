@@ -89,15 +89,17 @@ class MessageListFragment : Fragment() {
                             ui.root.setOnRefreshListener { }
                         }
                         is SearchState.Searched -> {
-                            ui.loadingProgress.isVisible = true
-                            val results = model.searchMessages(state.query)
-                            if (results == null) {
-                                Snackbar.make(ui.root, R.string.search_is_not_supported, Snackbar.LENGTH_SHORT)
-                                    .show()
-                            } else {
-                                messageSearchAdapter.submitList(results)
+                            messageSearchAdapter.highlightedText = state.query
+                            model.searchMessages(state.query).collect {
+                                messageSearchAdapter.submitList(it)
                             }
-                            ui.loadingProgress.isVisible = false
+
+//                            if (results == null) {
+//                                Snackbar.make(ui.root, R.string.search_is_not_supported, Snackbar.LENGTH_SHORT)
+//                                    .show()
+//                            } else {
+//                                messageSearchAdapter.submitList(results)
+//                            }
                         }
                     }
                 }

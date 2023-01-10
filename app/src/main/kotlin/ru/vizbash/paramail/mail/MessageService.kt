@@ -8,6 +8,7 @@ import androidx.room.withTransaction
 import com.sun.mail.iap.CommandFailedException
 import com.sun.mail.imap.IMAPFolder
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.account.FolderEntity
 import ru.vizbash.paramail.storage.account.MailAccount
@@ -135,17 +136,13 @@ class MessageService(
                         downloadMessageRange(folder, 1, localOldest ?: folder.messageCount)
                     }
 
-                    val localRecent = db.messageDao().getMostRecent(account.id, folderEntity.id)
-                    val remoteRecent = folder.getMessage(folder.messageCount - 1)
-
-                    if (remoteRecent.messageNumber == localRecent?.msgNum) {
+                    if (!folder.hasNewMessages()) {
                         Log.d(TAG, "${folderEntity.name} already up to date")
                         return@useFolder
                     }
 
-                    val endNum = remoteRecent.messageNumber
-                    val startNum = localRecent?.msgNum ?: 1
-                    downloadMessageRange(folder, startNum, endNum)
+                    val localRecent = db.messageDao().getMostRecent(account.id, folderEntity.id)
+                    downloadMessageRange(folder, localRecent?.msgNum ?: 1, folder.messageCount)
                 }
             } catch (e: MessagingException) {
                 e.printStackTrace()
@@ -244,20 +241,24 @@ class MessageService(
         }
     }
 
-    suspend fun searchMessages(pattern: String): List<Message>? = useFolder { folder ->
-        val term = OrTerm(arrayOf(FromStringTerm(pattern), SubjectTerm(pattern), BodyTerm(pattern)))
-        val nums = folder.doCommand { p ->
-            try {
-                p.search(term)
-            } catch (e: CommandFailedException) {
-                null
-            }
-        } as Array<*>? ?: return@useFolder null
+//    suspend fun searchMessages(pattern: String): List<Message>? = useFolder { folder ->
+//        val term = OrTerm(arrayOf(FromStringTerm(pattern), SubjectTerm(pattern), BodyTerm(pattern)))
+//        val nums = folder.doCommand { p ->
+//            try {
+//                p.search(term)
+//            } catch (e: CommandFailedException) {
+//                null
+//            }
+//        } as Array<*>? ?: return@useFolder null
+//
+//        nums.mapNotNull { msgNum ->
+//            db.messageDao().getByMsgNum(msgNum as Int)
+//                ?: convertToEntity(folder.getMessage(msgNum))
+//        }
+//    }
 
-        nums.mapNotNull { msgNum ->
-            db.messageDao().getByMsgNum(msgNum as Int)
-                ?: convertToEntity(folder.getMessage(msgNum))
-        }
+    fun searchMessages(query: String): Flow<List<Message>> {
+        return db.messageDao().searchEnvelopes(account.id, folderEntity.id, "%$query%")
     }
 
     private fun extractAttachments(msg: javax.mail.Message, msgId: Int): List<Attachment> {

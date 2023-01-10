@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.message.Message
@@ -38,7 +39,7 @@ class MessageListModel @Inject constructor(
         pager.flow.cachedIn(viewModelScope)
     }
 
-    suspend fun searchMessages(query: String): List<Message>? {
+    suspend fun searchMessages(query: String): Flow<List<Message>> {
         return messageService.await().searchMessages(query)
     }
 

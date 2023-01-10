@@ -34,10 +34,7 @@ class MessageLoadStateAdapter : LoadStateAdapter<MessageLoadStateAdapter.ViewHol
                 holder.textView.isVisible = true
                 holder.textView.text = holder.itemView.context.getString(R.string.loading_messages)
             }
-            is LoadState.Error -> {
-                holder.textView.isVisible = false
-                holder.textView.text = "Ошибка" // TODO
-            }
+            else -> {}
         }
     }
 
