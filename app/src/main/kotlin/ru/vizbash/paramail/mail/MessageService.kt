@@ -2,29 +2,27 @@ package ru.vizbash.paramail.mail
 
 import android.content.Context
 import android.net.Uri
+import android.text.format.DateFormat
 import android.util.Log
 import androidx.core.content.FileProvider
-import androidx.paging.PagingSource
-import androidx.paging.PagingState
 import androidx.room.withTransaction
 import com.sun.mail.imap.IMAPFolder
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ru.vizbash.paramail.R
 import ru.vizbash.paramail.storage.MailDatabase
 import ru.vizbash.paramail.storage.account.FolderEntity
 import ru.vizbash.paramail.storage.account.MailAccount
-import ru.vizbash.paramail.storage.message.Attachment
+import ru.vizbash.paramail.storage.message.*
+import ru.vizbash.paramail.storage.message.Address
 import ru.vizbash.paramail.storage.message.Message
-import ru.vizbash.paramail.storage.message.MessageBody
 import java.io.File
 import java.lang.Integer.max
 import javax.mail.*
 import javax.mail.Message.RecipientType
-import javax.mail.internet.InternetAddress
-import javax.mail.internet.MimeMultipart
-import javax.mail.internet.MimeUtility
+import javax.mail.internet.*
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
@@ -53,6 +51,8 @@ class MessageService(
         private var fetchJob: Job? = null // Одна корутина на все папки
     }
 
+    private val longDateFormat = DateFormat.getLongDateFormat(context)
+
     private val _fetchState = MutableStateFlow(FetchState.DONE)
     val fetchState = _fetchState.asStateFlow()
 
@@ -76,72 +76,38 @@ class MessageService(
 
     val pagingSource get() = db.messageDao().getAllPaged(account.id, folderEntity.id)
 
-//    val pagingSource: PagingSource<Int, Message>
-//        get() {
-//            val source = db.messageDao().getAllPaged(account.id, folderEntity.id)
-//
-//            return object : PagingSource<Int, Message>() {
-//                init {
-//                    source.registerInvalidatedCallback { invalidate() }
-//                }
-//
-//                override val jumpingSupported get() = source.jumpingSupported
-//                override val keyReuseSupported get() = source.keyReuseSupported
-//
-//                override fun getRefreshKey(state: PagingState<Int, Message>): Int? {
-//                    return source.getRefreshKey(state)
-//                }
-//
-//                override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Message> {
-//                    val result = source.load(params)
-//                    if (result is LoadResult.Page && result.nextKey == null) {
-//                        suspendCancellableCoroutine<Unit> { }
-//                    }
-//                    return result
-//                }
-//
-//            }
-//        }
-
-    private fun getAllRecipients(msg: javax.mail.Message): List<String> {
-        return sequenceOf(RecipientType.TO, RecipientType.CC, RecipientType.BCC)
-            .mapNotNull(msg::getRecipients)
-            .flatMap {
-                it.map {
-                    val addr = it as InternetAddress
-                    if (addr.personal.isNullOrEmpty()) {
-                        addr.address
-                    } else {
-                        "${addr.personal} <${addr.address}>"
-                    }
-                }
-            }
-            .toList()
-    }
-
-    private fun convertToEntity(msg: javax.mail.Message): Message? {
+    private fun convertToEntity(msg: javax.mail.Message): MessageWithRecipients? {
         if (msg.allRecipients == null || msg.subject == null) {
             return null
         }
 
         val from = msg.from.first() as InternetAddress
+        val to = msg.getRecipients(RecipientType.TO).first() as InternetAddress
 
-        return Message(
-            id = 0,
-            msgNum = msg.messageNumber,
-            accountId = account.id,
-            folderId = folderEntity.id,
-            subject = msg.subject,
-            recipients = getAllRecipients(msg),
-            from = from.address,
-            date = msg.receivedDate,
-            isUnread = !msg.isSet(Flags.Flag.SEEN),
+        return MessageWithRecipients(
+            msg = Message(
+                id = 0,
+                msgNum = msg.messageNumber,
+                accountId = account.id,
+                folderId = folderEntity.id,
+                subject = msg.subject,
+                fromId = 0,
+                toId = 0,
+                date = msg.receivedDate,
+                isUnread = !msg.isSet(Flags.Flag.SEEN),
+            ),
+            from = Address(0, from.address, from.personal),
+            to = Address(0, to.address, from.personal),
+            cc = (msg.getRecipients(RecipientType.CC) ?: arrayOf()).map {
+                val addr = it as InternetAddress
+                Address(0, addr.address, addr.personal)
+            },
         )
     }
 
     private suspend fun downloadMessageRange(folder: IMAPFolder, startNum: Int, endNum: Int) {
         for (msgNum in endNum downTo startNum step FETCH_COUNT) {
-            val pageStart = max(msgNum - FETCH_COUNT, startNum)
+            val pageStart = max(msgNum - FETCH_COUNT + 1, startNum)
 
             Log.d(TAG, "fetching messages from $pageStart to $msgNum")
 
@@ -149,7 +115,7 @@ class MessageService(
             folder.fetch(page, FETCH_PROFILE)
 
             val entities = page.mapNotNull(this@MessageService::convertToEntity)
-            db.messageDao().insertAll(entities)
+            db.messageDao().insertMessagesWithRecipients(entities)
         }
     }
 
@@ -165,7 +131,7 @@ class MessageService(
                     val localOldest = db.messageDao().getOldest(account.id, folderEntity.id)?.msgNum
                     if (localOldest == null || localOldest > 1) {
                         Log.d(TAG, "downloading history for folder ${folderEntity.name}")
-                        downloadMessageRange(folder, 1, localOldest ?: folder.messageCount)
+                        downloadMessageRange(folder, 1, localOldest?.minus(1) ?: folder.messageCount)
                     }
 
                     if (!folder.hasNewMessages()) {
@@ -200,7 +166,7 @@ class MessageService(
         attachment: Attachment,
         progressCb: (Float) -> Unit,
     ): Uri? {
-        val message = db.messageDao().getById(attachment.msgId)!!
+        val message = db.messageDao().getById(attachment.msgId)!!.msg
 
         return useFolder { folder ->
             val remoteMessage = folder.getMessage(message.msgNum)
@@ -264,7 +230,7 @@ class MessageService(
 
                 val remoteMsg = folder.getMessage(message.msgNum)
 
-                val attachments = extractAttachments(remoteMsg, message.id)
+                val attachments = findAttachments(remoteMsg, message.id)
 
                 val textPart = findTextPart(remoteMsg) ?: return@useFolder Pair(null, attachments)
                 val body = MessageBody(message.id, textPart.inputStream.readBytes(), textPart.contentType)
@@ -278,11 +244,11 @@ class MessageService(
         }
     }
 
-    fun searchMessages(query: String): Flow<List<Message>> {
+    fun searchMessages(query: String): Flow<List<MessageWithRecipients>> {
         return db.messageDao().searchEnvelopes(account.id, folderEntity.id, "%$query%")
     }
 
-    private fun extractAttachments(msg: javax.mail.Message, msgId: Int): List<Attachment> {
+    private fun findAttachments(msg: javax.mail.Message, msgId: Int): List<Attachment> {
         if (!msg.contentType.startsWith("multipart/mixed")) {
             return listOf()
         }
@@ -315,5 +281,113 @@ class MessageService(
             }
             else -> null
         }
+    }
+
+    private suspend fun loadTextBody(msg: Message): String {
+        val body = getMessageBody(msg).first
+        return if (body?.mime?.startsWith("text/plain") == true) {
+            body.content.toString(Charsets.UTF_8)
+        } else {
+            context.getString(R.string.non_plain_text_content)
+        }
+    }
+
+    suspend fun composeReply(message: MessageWithRecipients, replyToAll: Boolean): ComposedMessage {
+        val origText = loadTextBody(message.msg)
+
+        val header = context.getString(
+            R.string.reply_block_header,
+            longDateFormat.format(message.msg.date),
+            message.from.toString(),
+        )
+
+        val text = "\n\n" + (header + origText).prependIndent("  \u007c ")
+
+        return ComposedMessage(
+            subject = "RE: ${message.msg.subject}",
+            to = message.from.address,
+            cc = if (replyToAll) message.cc.map(Address::address).toSet() else setOf(),
+            text = text,
+            type = if (replyToAll) MessageType.REPLY_TO_ALL else MessageType.REPLY,
+            origMsgNum = message.msg.msgNum,
+            origMsgFolder = folderEntity.name,
+        )
+    }
+
+    suspend fun composeForward(message: MessageWithRecipients): ComposedMessage {
+        val origText = loadTextBody(message.msg)
+
+        val header = context.getString(
+            R.string.forward_block_header,
+            message.from.toString(),
+            message.to.toString(),
+            longDateFormat.format(message.msg.date),
+            message.msg.subject,
+        )
+
+        val text = '\n' + header + origText
+
+        return ComposedMessage(
+            subject = "FWD: ${message.msg.subject}",
+            text = text,
+            type = MessageType.FORWARD,
+            origMsgNum = message.msg.msgNum,
+            origMsgFolder = folderEntity.name,
+        )
+    }
+
+    suspend fun sendMessage(message: ComposedMessage) = withContext(Dispatchers.IO) {
+        val (session, transport) = mailService.connectSmtp(account.props, account.smtp)
+
+        val outMsg = when (message.type) {
+            MessageType.DEFAULT, MessageType.FORWARD -> {
+                MimeMessage(session).apply {
+                    setFrom(InternetAddress(account.imap.creds!!.login))
+                    setRecipient(RecipientType.TO, InternetAddress(message.to))
+                    setRecipients(RecipientType.CC, message.cc.map(::InternetAddress).toTypedArray())
+                    subject = message.subject
+                }
+            }
+            MessageType.REPLY, MessageType.REPLY_TO_ALL -> {
+                useFolder { folder ->
+                    val origMsg = folder.getMessage(message.origMsgNum!!)
+
+                    origMsg.reply(message.type == MessageType.REPLY_TO_ALL).apply {
+                        setFrom(InternetAddress(account.imap.creds!!.login))
+                    }
+                }
+            }
+        }
+
+        if (message.attachments.isNotEmpty()) {
+            val content = MimeMultipart("mixed")
+
+            val textPart = MimeBodyPart().apply {
+                setContent(message.text, "text/plain")
+            }
+            content.addBodyPart(textPart)
+
+            for ((uri, fileName) in message.attachments) {
+                val type = context.contentResolver.getType(uri) ?: "application/octet-stream"
+
+                val attachmentPart = MimeBodyPart()
+                attachmentPart.fileName = fileName
+
+                context.contentResolver.openInputStream(uri)!!.use {
+                    attachmentPart.setContent(it.readBytes(), type)
+                }
+
+                content.addBodyPart(attachmentPart)
+            }
+
+            outMsg.setContent(content)
+        } else {
+            outMsg.setText(message.text)
+        }
+
+        outMsg.saveChanges()
+        transport.sendMessage(outMsg, outMsg.allRecipients)
+
+        Log.d(TAG, "${account.imap.creds!!.login}: sent message to ${message.to} (subject: ${message.subject})")
     }
 }

@@ -12,11 +12,14 @@ import ru.vizbash.paramail.storage.message.*
     entities = [
         MailAccount::class,
         Message::class,
+        Address::class,
+        CcRecipient::class,
         MessageBody::class,
         Attachment::class,
         FolderEntity::class,
     ],
     version = 7,
+    exportSchema = false,
 )
 @TypeConverters(Converters::class)
 abstract class MailDatabase: RoomDatabase() {

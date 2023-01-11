@@ -25,7 +25,10 @@
             app:layout_constraintEnd_toStartOf="@id/date"
             tools:text="Отправитель"
             android:textSize="16sp"
-            android:maxLines="1"
+            android:singleLine="true"
+            android:ellipsize="marquee"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
             android:textColor="?colorOnBackground" />
 
         <TextView
@@ -37,7 +40,7 @@
             app:layout_constraintEnd_toStartOf="@id/date"
             tools:text="Получатель1, Получатель2..."
             android:ellipsize="end"
-            android:maxLines="1" />
+            android:singleLine="true" />
 
         <TextView
             android:id="@+id/date"

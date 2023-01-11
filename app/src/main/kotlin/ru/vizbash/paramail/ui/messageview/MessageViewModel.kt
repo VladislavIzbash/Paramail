@@ -10,6 +10,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import ru.vizbash.paramail.mail.ComposedMessage
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.message.Attachment
 import javax.inject.Inject
@@ -31,7 +32,7 @@ class MessageViewModel @Inject constructor(
         messageService.await().getById(messageId)!!
     }
     val messageBody = viewModelScope.async {
-        messageService.await().getMessageBody(message.await())
+        messageService.await().getMessageBody(message.await().msg)
     }
 
     val downloadProgress = MutableStateFlow(0F)
@@ -53,5 +54,13 @@ class MessageViewModel @Inject constructor(
     fun cancelDownload() {
         downloadJob?.cancel()
         downloadProgress.value = 0F
+    }
+
+    suspend fun composeReply(replyToAll: Boolean): ComposedMessage {
+        return messageService.await().composeReply(message.await(), replyToAll)
+    }
+
+    suspend fun composeForward(): ComposedMessage {
+        return messageService.await().composeForward(message.await())
     }
 }

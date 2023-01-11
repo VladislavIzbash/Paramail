@@ -1,12 +1,10 @@
 package ru.vizbash.paramail.storage.account
 
-import androidx.room.ColumnInfo
-import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.PrimaryKey
+import androidx.room.*
 
 @Entity(
     tableName = "folders",
+    indices = [Index("account_id")],
     foreignKeys = [
         ForeignKey(
             entity = MailAccount::class,

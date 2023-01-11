@@ -21,8 +21,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentMessageListBinding
+import ru.vizbash.paramail.mail.ComposedMessage
 import ru.vizbash.paramail.mail.FetchState
 import ru.vizbash.paramail.storage.message.Message
+import ru.vizbash.paramail.storage.message.MessageWithRecipients
 import ru.vizbash.paramail.ui.MainActivity
 import ru.vizbash.paramail.ui.MainViewModel
 import ru.vizbash.paramail.ui.MessageComposerFragment
@@ -102,11 +104,11 @@ class MessageListFragment : Fragment() {
         }
     }
 
-    private fun onMessageClicked(msg: Message) {
+    private fun onMessageClicked(msg: MessageWithRecipients) {
         val args = bundleOf(
             MessageViewFragment.ARG_ACCOUNT_ID to model.accountId,
             MessageViewFragment.ARG_FOLDER_NAME to model.folderName,
-            MessageViewFragment.ARG_MESSAGE_ID to msg.id,
+            MessageViewFragment.ARG_MESSAGE_ID to msg.msg.id,
         )
         findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment, args)
     }
@@ -114,31 +116,6 @@ class MessageListFragment : Fragment() {
     private suspend fun setupMessagePaging() {
         val messageAdapter = PagingMessageAdapter()
         messageAdapter.onMessageClickListener = this::onMessageClicked
-        messageAdapter.addLoadStateListener { loadState ->
-            when (loadState.refresh) {
-                is LoadState.NotLoading -> {
-                    ui.loadingProgress.isVisible = false
-                    ui.root.isRefreshing = false
-                }
-                is LoadState.Loading -> {
-                    ui.loadingProgress.isVisible = messageAdapter.itemCount == 0
-                    ui.root.isRefreshing = messageAdapter.itemCount != 0
-                }
-                is LoadState.Error -> {
-                    (loadState.refresh as LoadState.Error).error.printStackTrace()
-
-                    Snackbar.make(ui.root, R.string.error_loading_message_list, Snackbar.LENGTH_LONG)
-                        .setAction(R.string.try_again) {
-                            messageAdapter.refresh()
-                        }
-                        .show()
-
-                    ui.loadingProgress.isVisible = false
-                    ui.root.isRefreshing = false
-                }
-                else -> {}
-            }
-        }
 
         val loadStateAdapter = MessageLoadStateAdapter()
         ui.messageList.adapter = ConcatAdapter(messageAdapter, loadStateAdapter)
@@ -149,26 +126,38 @@ class MessageListFragment : Fragment() {
         }
         ItemTouchHelper(touchCallback).attachToRecyclerView(ui.messageList)
 
-        ui.loadingProgress.isVisible = false
         ui.root.setOnRefreshListener {
             model.startUpdate()
+        }
+
+        messageAdapter.addLoadStateListener { loadState ->
+            lifecycleScope.launch {
+                val refreshingEmpty = loadState.refresh is LoadState.Loading
+                        && messageAdapter.itemCount == 0
+                val fetchingHistory = messageAdapter.itemCount > 0
+                        && model.getFetchState().value == FetchState.FETCHING_OLD
+
+                ui.loadingProgress.isVisible = refreshingEmpty
+
+                loadStateAdapter.loadState = if (fetchingHistory) LoadState.Loading else LoadState.NotLoading(false)
+            }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 model.getFetchState().collect {
-                    loadStateAdapter.loadState = when (it) {
+                    when (it) {
                         FetchState.FETCHING_NEW -> LoadState.NotLoading(true)
                         FetchState.FETCHING_OLD -> {
                             val hasItems = messageAdapter.itemCount > 0
 
                             ui.loadingProgress.isVisible = !hasItems
-                            if (hasItems) LoadState.Loading else LoadState.NotLoading(false)
+                            loadStateAdapter.loadState = if (hasItems) LoadState.Loading else LoadState.NotLoading(false)
                         }
                         FetchState.DONE -> {
                             ui.root.isRefreshing = false
                             ui.loadingProgress.isVisible = false
-                            LoadState.NotLoading(true)
+                            loadStateAdapter.loadState = LoadState.NotLoading(true)
                         }
                         FetchState.ERROR -> LoadState.Error(Throwable())
                     }
@@ -178,8 +167,6 @@ class MessageListFragment : Fragment() {
 
         model.getMessageFlow().collectLatest {
             messageAdapter.submitData(it)
-            val show = messageAdapter.itemCount > 0 && model.getFetchState().value == FetchState.FETCHING_OLD
-            loadStateAdapter.loadState = if (show) LoadState.Loading else LoadState.NotLoading(false)
         }
     }
 }

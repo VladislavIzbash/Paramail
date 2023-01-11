@@ -26,7 +26,6 @@
     <fragment
         android:id="@+id/messageListFragment"
         android:name="ru.vizbash.paramail.ui.messagelist.MessageListFragment"
-        android:label="INBOX"
         tools:layout="@layout/fragment_message_list" >
 
         <action

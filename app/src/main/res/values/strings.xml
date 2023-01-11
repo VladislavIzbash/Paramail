@@ -58,4 +58,7 @@
     <string name="message_will_be_sent">Письмо будет отправлено через %1$d сек.</string>
     <string name="message_sent">Письмо отправлено</string>
     <string name="message_send_error">Ошибка отправки письма</string>
+    <string name="reply_block_header">%1$s от %2$s:\n\n</string>
+    <string name="non_plain_text_content">Содержимое не является текстом</string>
+    <string name="forward_block_header">------ Пересылаемое сообщение ------\nОт кого: %1$s\nКому: %2$s\nДата: %3$s\nТема: %4$s\n\n</string>
 </resources>

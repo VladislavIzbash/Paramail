@@ -10,6 +10,7 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.content.edit
 import androidx.core.os.bundleOf
 import androidx.core.view.forEach
+import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -21,9 +22,11 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.*
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.ActivityMainBinding
 import ru.vizbash.paramail.storage.account.FolderEntity
@@ -39,7 +42,7 @@ private val STANDARD_FOLDER_NAMES = mapOf(
 private const val KEY_LAST_ACCOUNT_ID = "last_account_id"
 private const val KEY_LAST_FOLDER_NAME = "last_folder_name"
 
-private const val DEFAULT_FOLDER = "INBOX"
+const val DEFAULT_FOLDER = "INBOX"
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -69,23 +72,28 @@ class MainActivity : AppCompatActivity() {
             invalidateOptionsMenu()
         }
 
-        lifecycleScope.launch {
-            val accountList = model.accountList.first()
-            if (accountList.isEmpty()) {
-                return@launch
+        val lastAccountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, -1)
+        val accountId = if (lastAccountId == -1) {
+            runBlocking(Dispatchers.IO) {
+                model.accountList.first().firstOrNull()?.id
             }
+        } else {
+            lastAccountId
+        }
 
-            val accountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, accountList.first().id)
-            val lastFolderName = prefs.getString(KEY_LAST_FOLDER_NAME, DEFAULT_FOLDER)!!
+        val folderName = prefs.getString(KEY_LAST_FOLDER_NAME, DEFAULT_FOLDER)!!
 
-            navigateToFolder(accountId, lastFolderName)
+        if (accountId != null) {
+            navigateToFolder(accountId, folderName)
 
-            model.updateFolderList(accountId)
-            model.folderList.first(List<FolderEntity>::isNotEmpty)
+            lifecycleScope.launch {
+                model.updateFolderList(accountId)
+                model.folderList.first(List<FolderEntity>::isNotEmpty)
 
-            drawerInit()
-
-//            drawerSwitchFolder(accountId, resolveFolderId(lastFolderName))
+                drawerInit()
+            }
+        } else {
+            supportActionBar?.setDisplayHomeAsUpEnabled(false)
         }
 
         lifecycleScope.launch { observeMessageSend() }
@@ -153,11 +161,7 @@ class MainActivity : AppCompatActivity() {
     private fun navigateToFolder(accountId: Int, folderName: String) {
         val opts = NavOptions.Builder()
             .setLaunchSingleTop(true)
-            .setPopUpTo(
-                navController.graph.findStartDestination().id,
-                inclusive = false,
-                saveState = true,
-            )
+            .setPopUpTo(null, inclusive = false, saveState = true)
             .build()
 
         val args = bundleOf(

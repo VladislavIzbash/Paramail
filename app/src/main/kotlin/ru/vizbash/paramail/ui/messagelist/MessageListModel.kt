@@ -5,11 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.message.Message
+import ru.vizbash.paramail.storage.message.MessageWithRecipients
 import javax.inject.Inject
 
 @HiltViewModel
@@ -24,7 +26,7 @@ class MessageListModel @Inject constructor(
         mailService.getMessageService(accountId, folderName)
     }
 
-    suspend fun getMessageFlow(): Flow<PagingData<Message>> {
+    suspend fun getMessageFlow(): Flow<PagingData<MessageWithRecipients>> {
         val messageService = messageService.await()
 
         val pager = Pager(
@@ -39,7 +41,7 @@ class MessageListModel @Inject constructor(
         return pager.flow.cachedIn(viewModelScope)
     }
 
-    suspend fun searchMessages(query: String): Flow<List<Message>> {
+    suspend fun searchMessages(query: String): Flow<List<MessageWithRecipients>> {
         return messageService.await().searchMessages(query)
     }
 

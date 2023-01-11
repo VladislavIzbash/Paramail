@@ -60,7 +60,9 @@ class MainViewModel @Inject constructor(
             delay(MESSAGE_SEND_DELAY_MS)
 
             try {
-                mailService.sendMessage(message, accountId)
+                mailService
+                    .getMessageService(accountId, message.origMsgFolder ?: DEFAULT_FOLDER)
+                    .sendMessage(message)
                 _messageSendState.value = MessageSendState.Sent
             } catch (e: Exception) {
                 e.printStackTrace()

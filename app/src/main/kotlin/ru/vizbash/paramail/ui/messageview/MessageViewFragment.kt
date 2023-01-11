@@ -20,7 +20,6 @@ import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.setFragmentResult
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -84,24 +83,22 @@ class MessageViewFragment : Fragment() {
         val actionBar = (requireActivity() as AppCompatActivity).supportActionBar
         actionBar?.setTitle(R.string.loading)
 
-        ui.replyButton.setOnClickListener {
-            val args = bundleOf(
-                MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
-                MessageComposerFragment.ARG_REPLY_TO_MSG_ID to model.messageId,
-            )
-            findNavController().navigate(R.id.action_messageViewFragment_to_messageComposerFragment, args)
-        }
+        ui.from.isSelected = true
+
+        ui.replyButton.setOnClickListener { onReplyClicked(false) }
+        ui.replyAllButton.setOnClickListener { onReplyClicked(true) }
+        ui.forwardButton.setOnClickListener { onForwardClicked() }
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val msg = model.message.await()
 
-                actionBar?.title = msg.subject
+                actionBar?.title = msg.msg.subject
 
-                ui.from.text = msg.from
+                ui.from.text = msg.from.toString()
                 @SuppressLint("SetTextI18n")
-                ui.date.text = "${dateFormat.format(msg.date)}\n${timeFormat.format(msg.date)}"
-                ui.recipients.text = msg.recipients.joinToString(", ")
+                ui.date.text = "${dateFormat.format(msg.msg.date)}\n${timeFormat.format(msg.msg.date)}"
+                ui.recipients.text = (listOf(msg.to) + msg.cc).joinToString(", ")
 
                 val (body, attachments) = model.messageBody.await()
 
@@ -196,6 +193,28 @@ class MessageViewFragment : Fragment() {
         val digitGroup = (log10(size.toDouble()) / log10(1024F)).toInt()
         val num = DecimalFormat("#,##0.#").format(size / 1024.0.pow(digitGroup))
         return "$num ${units[digitGroup]}"
+    }
+
+    private fun onReplyClicked(replyToAll: Boolean) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val reply = model.composeReply(replyToAll)
+            val args = bundleOf(
+                MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
+                MessageComposerFragment.ARG_COMPOSED_MESSAGE to reply,
+            )
+            findNavController().navigate(R.id.action_messageViewFragment_to_messageComposerFragment, args)
+        }
+    }
+
+    private fun onForwardClicked() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val msg = model.composeForward()
+            val args = bundleOf(
+                MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
+                MessageComposerFragment.ARG_COMPOSED_MESSAGE to msg,
+            )
+            findNavController().navigate(R.id.action_messageViewFragment_to_messageComposerFragment, args)
+        }
     }
 
     class MessageWebViewClient(private val context: Context) : WebViewClient() {

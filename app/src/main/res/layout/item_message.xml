@@ -18,7 +18,7 @@
         android:textSize="18sp"
         android:textColor="?colorOnBackground"
         android:ellipsize="end"
-        android:maxLines="1"
+        android:singleLine="true"
         tools:text="Тема письма" />
 
     <TextView
@@ -27,7 +27,7 @@
         android:layout_height="wrap_content"
         app:layout_constraintTop_toBottomOf="@+id/mail_subject"
         app:layout_constraintStart_toStartOf="parent"
-        android:maxLines="1"
+        android:singleLine="true"
         android:ellipsize="end"
         style="@style/TextAppearance.MaterialComponents.Body1"
         tools:text="Отправитель" />

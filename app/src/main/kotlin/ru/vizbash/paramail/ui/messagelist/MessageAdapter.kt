@@ -16,40 +16,40 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.ItemMessageBinding
-import ru.vizbash.paramail.storage.message.Message
+import ru.vizbash.paramail.storage.message.MessageWithRecipients
 
 class MessageViewHolder(
     view: View,
-    private val onMessageClickListener: (Message) -> Unit,
+    private val onMessageClickListener: (MessageWithRecipients) -> Unit,
 ) : RecyclerView.ViewHolder(view) {
     private val ui = ItemMessageBinding.bind(view)
 
     private val timeFormat = DateFormat.getTimeFormat(view.context)
     private val dateFormat = DateFormat.getMediumDateFormat(view.context)
 
-    fun bind(message: Message, highlight: String?) {
+    fun bind(message: MessageWithRecipients, highlight: String?) {
         ui.mailSubject.text = if (highlight == null) {
-            message.subject
+            message.msg.subject
         } else {
-            makeHighlightSpan(message.subject, highlight)
+            makeHighlightSpan(message.msg.subject, highlight)
         }
 
         ui.mailFrom.text = if (highlight == null) {
-            message.from
+            message.from.toString()
         } else {
-            makeHighlightSpan(message.from, highlight)
+            makeHighlightSpan(message.from.toString(), highlight)
         }
 
         @SuppressLint("SetTextI18n")
-        ui.mailDate.text = if (DateUtils.isToday(message.date.time)) {
-            timeFormat.format(message.date)
+        ui.mailDate.text = if (DateUtils.isToday(message.msg.date.time)) {
+            timeFormat.format(message.msg.date)
         } else {
-            dateFormat.format(message.date)
+            dateFormat.format(message.msg.date)
         }
 
         if (highlight == null) {
             ui.mailSubject.typeface =
-                if (message.isUnread) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                if (message.msg.isUnread) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
         }
 
         ui.root.setOnClickListener { onMessageClickListener(message) }
@@ -70,8 +70,8 @@ class MessageViewHolder(
     }
 }
 
-class PagingMessageAdapter : PagingDataAdapter<Message, MessageViewHolder>(DIFF_CALLBACK) {
-    var onMessageClickListener: (Message) -> Unit = {}
+class PagingMessageAdapter : PagingDataAdapter<MessageWithRecipients, MessageViewHolder>(DIFF_CALLBACK) {
+    var onMessageClickListener: (MessageWithRecipients) -> Unit = {}
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -84,8 +84,8 @@ class PagingMessageAdapter : PagingDataAdapter<Message, MessageViewHolder>(DIFF_
     }
 }
 
-class ListMessageAdapter : ListAdapter<Message, MessageViewHolder>(DIFF_CALLBACK) {
-    var onMessageClickListener: (Message) -> Unit = {}
+class ListMessageAdapter : ListAdapter<MessageWithRecipients, MessageViewHolder>(DIFF_CALLBACK) {
+    var onMessageClickListener: (MessageWithRecipients) -> Unit = {}
 
     var highlightedText: String? = null
         @SuppressLint("NotifyDataSetChanged")
@@ -105,17 +105,17 @@ class ListMessageAdapter : ListAdapter<Message, MessageViewHolder>(DIFF_CALLBACK
     }
 }
 
-private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<Message>() {
+private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<MessageWithRecipients>() {
     override fun areItemsTheSame(
-        oldItem: Message,
-        newItem: Message,
+        oldItem: MessageWithRecipients,
+        newItem: MessageWithRecipients,
     ): Boolean {
-        return oldItem.id == newItem.id
+        return oldItem.msg.id == newItem.msg.id
     }
 
     override fun areContentsTheSame(
-        oldItem: Message,
-        newItem: Message,
+        oldItem: MessageWithRecipients,
+        newItem: MessageWithRecipients,
     ): Boolean {
         return oldItem == newItem
     }

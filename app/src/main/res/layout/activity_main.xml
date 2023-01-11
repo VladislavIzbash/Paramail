@@ -3,7 +3,6 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:openDrawer="start"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="false" >
@@ -24,8 +23,6 @@
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
-                app:title="INBOX"
-                app:menu="@menu/message_list"
                 app:popupTheme="@style/Theme.Paramail.PopupOverlay" >
 
             </androidx.appcompat.widget.Toolbar>

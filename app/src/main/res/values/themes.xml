@@ -17,8 +17,10 @@
         <item name="colorSpamAction">@color/red</item>
         <item name="colorIncompleteAction">@color/gray</item>
 
-        <item name="enterAnim">@anim/nav_default_enter_anim</item>
-        <item name="exitAnim">@anim/nav_default_exit_anim</item>
+        <item name="enterAnim">@anim/slide_right_to_left</item>
+        <item name="exitAnim">@anim/slide_left_to_offscreen</item>
+        <item name="popEnterAnim">@anim/slide_offscreen_to_left</item>
+        <item name="popExitAnim">@anim/slide_left_to_right</item>
 
         <item name="android:windowTranslucentStatus">true</item>
     </style>
