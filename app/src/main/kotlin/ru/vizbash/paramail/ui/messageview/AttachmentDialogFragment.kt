@@ -1,6 +1,7 @@
 package ru.vizbash.paramail.ui.messageview
 
 import android.app.Dialog
+import android.content.DialogInterface
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -11,9 +12,9 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.DialogAttachmentBinding
 import ru.vizbash.paramail.storage.message.Attachment
@@ -28,6 +29,8 @@ class AttachmentDialogFragment(
     private val attachmentMime = attachment.mime.split(';').first()
     private lateinit var saveAttachmentLauncher: ActivityResultLauncher<String>
 
+    private lateinit var uriDeferred: Deferred<Uri>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -36,11 +39,15 @@ class AttachmentDialogFragment(
                 return@registerForActivityResult
             }
 
-            val input = requireContext().contentResolver.openInputStream(model.downloadedUri!!)!!
+            val uri = runBlocking { uriDeferred.await() }
+
+            val input = requireContext().contentResolver.openInputStream(uri)!!
             val output = requireContext().contentResolver.openOutputStream(saveUri)!!
 
             input.use { output.use { input.copyTo(output) } }
         }
+
+        uriDeferred = model.downloadAttachmentAsync(attachment)
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -55,22 +62,20 @@ class AttachmentDialogFragment(
         ui.openButton.isVisible = false
 
         ui.cancelButton.setOnClickListener {
-            model.cancelDownload()
+            uriDeferred.cancel()
             dismiss()
         }
-
-        model.startDownload(attachment)
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 model.downloadProgress.collect {
                     ui.downloadProgress.progress = (it * 100F).toInt()
-
-                    if (it == 1F) {
-                        onDownloadFinished()
-                    }
                 }
             }
+        }
+
+        lifecycleScope.launch {
+            onDownloadFinished(uriDeferred.await())
         }
 
         return object : Dialog(requireContext()) {
@@ -81,14 +86,18 @@ class AttachmentDialogFragment(
         }
     }
 
-    private fun onDownloadFinished() {
+    override fun onDismiss(dialog: DialogInterface) {
+        uriDeferred.cancel()
+    }
+
+    private fun onDownloadFinished(uri: Uri) {
         ui.name.text = getString(R.string.downloaded, attachment.fileName)
         ui.cancelButton.isVisible = false
         ui.openButton.isVisible = true
         ui.saveButton.isVisible = true
 
         val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(model.downloadedUri, attachmentMime)
+            setDataAndType(uri, attachmentMime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         ui.openButton.isEnabled = viewIntent.resolveActivity(requireContext().packageManager) != null

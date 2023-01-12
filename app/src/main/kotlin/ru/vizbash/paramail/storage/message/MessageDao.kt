@@ -26,7 +26,7 @@ interface MessageDao {
     suspend fun getOldest(accountId: Int, folderId: Int): Message?
 
     @Transaction
-    @Query("SELECT * FROM messages m " +
+    @Query("SELECT m.* FROM messages m " +
             "JOIN addresses a ON m.from_id = a.id " +
             "WHERE account_id = :accountId AND folder_id = :folderId " +
             "AND (LOWER(subject) LIKE LOWER(:pattern) OR LOWER(a.address || a.personal) LIKE LOWER(:pattern)) " +

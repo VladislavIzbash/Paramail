@@ -106,6 +106,7 @@ class MessageService(
     }
 
     private suspend fun downloadMessageRange(folder: IMAPFolder, startNum: Int, endNum: Int) {
+        delay(5000)
         for (msgNum in endNum downTo startNum step FETCH_COUNT) {
             val pageStart = max(msgNum - FETCH_COUNT + 1, startNum)
 
@@ -165,7 +166,7 @@ class MessageService(
     suspend fun downloadAttachment(
         attachment: Attachment,
         progressCb: (Float) -> Unit,
-    ): Uri? {
+    ): Uri?  {
         val message = db.messageDao().getById(attachment.msgId)!!.msg
 
         return useFolder { folder ->
@@ -206,7 +207,7 @@ class MessageService(
 
                 Log.d(TAG, "${account.imap.creds.login}: downloaded ${attachment.fileName}")
 
-                return@useFolder FileProvider.getUriForFile(
+                FileProvider.getUriForFile(
                     context,
                     "ru.vizbash.paramail.attachmentprovider",
                     file,
@@ -214,7 +215,7 @@ class MessageService(
             } catch (e: CancellationException) {
                 file.delete()
                 Log.d(TAG, "${account.imap.creds.login}: canceled download of ${attachment.fileName}")
-                return@useFolder null
+                null
             }
         }
     }

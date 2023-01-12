@@ -5,11 +5,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.mail.ComposedMessage
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.message.Attachment
@@ -37,23 +36,14 @@ class MessageViewModel @Inject constructor(
 
     val downloadProgress = MutableStateFlow(0F)
 
-    private var downloadJob: Job? = null
-
-    var downloadedUri: Uri? = null
-
-    fun startDownload(attachment: Attachment) {
-        downloadJob?.cancel()
-        downloadJob = viewModelScope.launch {
-            downloadedUri = messageService.await().downloadAttachment(attachment) {
+    fun downloadAttachmentAsync(attachment: Attachment): Deferred<Uri> {
+        return viewModelScope.async {
+            messageService.await().downloadAttachment(attachment) {
                 downloadProgress.value = it
-            }
+            }!!
         }
-        // TODO: обработка ошибок
-    }
 
-    fun cancelDownload() {
-        downloadJob?.cancel()
-        downloadProgress.value = 0F
+        // TODO: обработка ошибок
     }
 
     suspend fun composeReply(replyToAll: Boolean): ComposedMessage {

@@ -10,6 +10,11 @@ import android.text.style.StyleSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.core.view.isVisible
+import androidx.paging.LoadState
+import androidx.paging.LoadStateAdapter
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -82,6 +87,36 @@ class PagingMessageAdapter : PagingDataAdapter<MessageWithRecipients, MessageVie
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
         getItem(position)?.let { holder.bind(it, null) }
     }
+}
+
+class MessageLoadStateAdapter : LoadStateAdapter<MessageLoadStateAdapter.ViewHolder>() {
+    override fun onCreateViewHolder(parent: ViewGroup, loadState: LoadState): ViewHolder {
+        val view = TextView(parent.context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            textSize = parent.context.resources.getDimension(R.dimen.loading_text_size)
+        }
+
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, loadState: LoadState) {
+        when (loadState) {
+            is LoadState.NotLoading -> {
+                holder.textView.isVisible = false
+            }
+            is LoadState.Loading -> {
+                holder.textView.isVisible = true
+                holder.textView.text = holder.itemView.context.getString(R.string.loading_messages)
+            }
+            else -> {}
+        }
+    }
+
+    class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
 }
 
 class ListMessageAdapter : ListAdapter<MessageWithRecipients, MessageViewHolder>(DIFF_CALLBACK) {

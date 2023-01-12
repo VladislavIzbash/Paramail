@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity() {
 
         navController.addOnDestinationChangedListener { _, _, _ ->
             invalidateOptionsMenu()
+            model.searchState.value = SearchState.Closed
         }
 
         val lastAccountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, -1)

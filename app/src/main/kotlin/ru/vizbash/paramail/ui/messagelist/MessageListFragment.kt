@@ -6,7 +6,9 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
-import androidx.fragment.app.*
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -15,21 +17,18 @@ import androidx.paging.LoadState
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
-import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentMessageListBinding
-import ru.vizbash.paramail.mail.ComposedMessage
-import ru.vizbash.paramail.mail.FetchState
-import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.storage.message.MessageWithRecipients
 import ru.vizbash.paramail.ui.MainActivity
 import ru.vizbash.paramail.ui.MainViewModel
 import ru.vizbash.paramail.ui.MessageComposerFragment
-import ru.vizbash.paramail.ui.messageview.MessageViewFragment
 import ru.vizbash.paramail.ui.SearchState
+import ru.vizbash.paramail.ui.messageview.MessageViewFragment
 
 @AndroidEntryPoint
 class MessageListFragment : Fragment() {
@@ -58,13 +57,11 @@ class MessageListFragment : Fragment() {
         _ui = null
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        model.startUpdate()
-    }
+    private val loadStateAdapter = MessageLoadStateAdapter()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        (requireActivity() as MainActivity).setFolderName(model.folderName)
+
         ui.composeMessageButton.setOnClickListener {
             val args = bundleOf(
                 MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
@@ -77,30 +74,79 @@ class MessageListFragment : Fragment() {
             DividerItemDecoration.VERTICAL,
         ))
 
+        val messageAdapter = PagingMessageAdapter()
+        messageAdapter.onMessageClickListener = this::onMessageClicked
+        messageAdapter.addLoadStateListener {
+            if (messageAdapter.itemCount > 0) {
+                model.onLoadedFirstPage()
+            }
+        }
+
+        ui.messageList.adapter = ConcatAdapter(messageAdapter, loadStateAdapter)
+
+        val touchCallback = MessageTouchCallback(ui.root)
+        touchCallback.swipeStateListener = { isSwiping ->
+            ui.root.isEnabled = !isSwiping
+        }
+        ItemTouchHelper(touchCallback).attachToRecyclerView(ui.messageList)
+
         val messageSearchAdapter = ListMessageAdapter()
+        messageSearchAdapter.onMessageClickListener = this::onMessageClicked
 
         viewLifecycleOwner.lifecycleScope.launch {
-            (requireActivity() as MainActivity).setFolderName(model.folderName)
+            model.fetchHistory()
+
+            launch {
+                model.messages.collectLatest {
+                    messageAdapter.submitData(it)
+                }
+            }
 
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    model.progressVisibility.collect {
+                        setProgressVisibility(it)
+                    }
+                }
+
                 mainModel.searchState.collectLatest { state ->
                     when (state) {
-                        SearchState.Closed -> setupMessagePaging()
+                        SearchState.Closed -> {
+                            ui.messageList.adapter = messageAdapter
+                            ui.root.setOnRefreshListener { model.updateMessages() }
+                        }
                         SearchState.Opened -> {
-                            messageSearchAdapter.onMessageClickListener = this@MessageListFragment::onMessageClicked
                             ui.messageList.adapter = messageSearchAdapter
-
                             ui.root.setOnRefreshListener { }
                         }
                         is SearchState.Searched -> {
                             messageSearchAdapter.highlightedText = state.query
-                            model.searchMessages(state.query).collect {
-                                messageSearchAdapter.submitList(it)
+
+                            if (state.query.length > 3) {
+                                model.searchMessages(state.query).collect {
+                                    messageSearchAdapter.submitList(it)
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    private fun setProgressVisibility(vis: ProgressVisibility) {
+        if (mainModel.searchState.value !is SearchState.Closed) {
+            return
+        }
+
+        ui.loadingProgress.isVisible = vis.general
+        loadStateAdapter.loadState = if (vis.fetchMore) {
+            LoadState.Loading
+        } else {
+            LoadState.NotLoading(true)
+        }
+        if (!vis.refresh) {
+            ui.root.isRefreshing = false
         }
     }
 
@@ -111,62 +157,5 @@ class MessageListFragment : Fragment() {
             MessageViewFragment.ARG_MESSAGE_ID to msg.msg.id,
         )
         findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment, args)
-    }
-
-    private suspend fun setupMessagePaging() {
-        val messageAdapter = PagingMessageAdapter()
-        messageAdapter.onMessageClickListener = this::onMessageClicked
-
-        val loadStateAdapter = MessageLoadStateAdapter()
-        ui.messageList.adapter = ConcatAdapter(messageAdapter, loadStateAdapter)
-
-        val touchCallback = MessageTouchCallback(ui.root)
-        touchCallback.swipeStateListener = { isSwiping ->
-            ui.root.isEnabled = !isSwiping
-        }
-        ItemTouchHelper(touchCallback).attachToRecyclerView(ui.messageList)
-
-        ui.root.setOnRefreshListener {
-            model.startUpdate()
-        }
-
-        messageAdapter.addLoadStateListener { loadState ->
-            lifecycleScope.launch {
-                val refreshingEmpty = loadState.refresh is LoadState.Loading
-                        && messageAdapter.itemCount == 0
-                val fetchingHistory = messageAdapter.itemCount > 0
-                        && model.getFetchState().value == FetchState.FETCHING_OLD
-
-                ui.loadingProgress.isVisible = refreshingEmpty
-
-                loadStateAdapter.loadState = if (fetchingHistory) LoadState.Loading else LoadState.NotLoading(false)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                model.getFetchState().collect {
-                    when (it) {
-                        FetchState.FETCHING_NEW -> LoadState.NotLoading(true)
-                        FetchState.FETCHING_OLD -> {
-                            val hasItems = messageAdapter.itemCount > 0
-
-                            ui.loadingProgress.isVisible = !hasItems
-                            loadStateAdapter.loadState = if (hasItems) LoadState.Loading else LoadState.NotLoading(false)
-                        }
-                        FetchState.DONE -> {
-                            ui.root.isRefreshing = false
-                            ui.loadingProgress.isVisible = false
-                            loadStateAdapter.loadState = LoadState.NotLoading(true)
-                        }
-                        FetchState.ERROR -> LoadState.Error(Throwable())
-                    }
-                }
-            }
-        }
-
-        model.getMessageFlow().collectLatest {
-            messageAdapter.submitData(it)
-        }
     }
 }
