@@ -1,29 +1,30 @@
 package ru.vizbash.paramail.ui.messagelist
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.*
-import android.view.View
 import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.snackbar.Snackbar
 import ru.vizbash.paramail.R
 import kotlin.math.abs
 
 @SuppressLint("ResourceType")
-class MessageTouchCallback(private val root: View) : ItemTouchHelper.SimpleCallback(
+class MessageTouchCallback(context: Context) : ItemTouchHelper.SimpleCallback(
     0,
     ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT,
 ) {
     var swipeStateListener: (Boolean) -> Unit = {}
+    var onArchiveListener: (RecyclerView.ViewHolder) -> Unit = {}
+    var onSpamListener: (RecyclerView.ViewHolder) -> Unit = {}
 
     private val archiveIcon = ResourcesCompat.getDrawable(
-        root.context.resources,
+        context.resources,
         R.drawable.ic_archive,
         null,
     )!!
     private val spamIcon = ResourcesCompat.getDrawable(
-        root.context.resources,
+        context.resources,
         R.drawable.ic_to_spam,
         null,
     )!!
@@ -33,7 +34,7 @@ class MessageTouchCallback(private val root: View) : ItemTouchHelper.SimpleCallb
     private val incompleteColor: Int
 
     init {
-        val attrs = root.context.theme.obtainStyledAttributes(intArrayOf(
+        val attrs = context.theme.obtainStyledAttributes(intArrayOf(
             R.attr.colorOnSwipeAction,
             R.attr.colorSpamAction,
             R.attr.colorArchiveAction,
@@ -58,13 +59,11 @@ class MessageTouchCallback(private val root: View) : ItemTouchHelper.SimpleCallb
     ) = true
 
     override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-        val text = if (direction == ItemTouchHelper.RIGHT) {
-            "Добавлено в архив"
+        if (direction == ItemTouchHelper.RIGHT) {
+            onArchiveListener(viewHolder)
         } else {
-            "Добавлено в спам"
+            onSpamListener(viewHolder)
         }
-
-        Snackbar.make(root, text, Snackbar.LENGTH_SHORT).show()
     }
 
     override fun getSwipeThreshold(viewHolder: RecyclerView.ViewHolder) = 0.3f

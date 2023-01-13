@@ -56,4 +56,10 @@
         android:label="Новое сообщение"
         tools:layout="@layout/fragment_message_composer" />
 
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="ru.vizbash.paramail.ui.settings.SettingsFragment"
+        android:label="@string/settings"
+        tools:layout="@layout/fragment_settings" />
+
 </navigation>

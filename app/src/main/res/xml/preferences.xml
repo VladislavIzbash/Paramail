@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <SeekBarPreference
+        app:key="message_check_interval"
+        app:title="@string/message_check_interval"
+        app:min="15"
+        android:max="60"
+        app:defaultValue="15"
+        app:showSeekBarValue="true"
+        app:iconSpaceReserved="false"/>
+
+</PreferenceScreen>

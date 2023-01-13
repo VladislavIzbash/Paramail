@@ -102,7 +102,7 @@ class MailService @Inject constructor(
         }
     }
 
-    suspend fun listFolders(accountId: Int): List<FolderEntity> = withContext(Dispatchers.IO) {
+    suspend fun folderList(accountId: Int): List<FolderEntity> = withContext(Dispatchers.IO) {
         downloadFolderList(accountId)
         return@withContext db.accountDao().getFolders(accountId)
     }

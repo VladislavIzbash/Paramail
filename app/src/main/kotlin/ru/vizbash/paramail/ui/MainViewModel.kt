@@ -41,7 +41,7 @@ class MainViewModel @Inject constructor(
     fun updateFolderList(accountId: Int) {
         viewModelScope.launch {
             try {
-                _folderList.value = mailService.listFolders(accountId)
+                _folderList.value = mailService.folderList(accountId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }

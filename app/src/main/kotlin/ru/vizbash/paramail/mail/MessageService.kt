@@ -110,7 +110,7 @@ class MessageService(
         for (msgNum in endNum downTo startNum step FETCH_COUNT) {
             val pageStart = max(msgNum - FETCH_COUNT + 1, startNum)
 
-            Log.d(TAG, "fetching messages from $pageStart to $msgNum")
+            Log.d(TAG, "fetching messages from ${folder.name} from $pageStart to $msgNum")
 
             val page = folder.getMessages(pageStart, msgNum)
             folder.fetch(page, FETCH_PROFILE)
@@ -390,5 +390,45 @@ class MessageService(
         transport.sendMessage(outMsg, outMsg.allRecipients)
 
         Log.d(TAG, "${account.imap.creds!!.login}: sent message to ${message.to} (subject: ${message.subject})")
+    }
+
+    suspend fun moveToSpam(message: Message) {
+        moveToFolder(message) { folder ->
+            folder.list().find {
+                val attrs = (it as IMAPFolder).attributes
+                attrs.contains("\\Spam") || attrs.contains("\\Junk")
+            }
+        }
+    }
+
+    suspend fun moveToArchive(message: Message) {
+        moveToFolder(message) { folder ->
+            val byAttr = folder.list().find {
+                (it as IMAPFolder).attributes.contains("\\Archive")
+            }
+            byAttr ?: folder.list("Archive").firstOrNull()
+        }
+    }
+
+    private suspend fun moveToFolder(message: Message, destFolderFinder: (IMAPFolder) -> Folder?) {
+        db.withTransaction {
+            db.messageDao().delete(message)
+
+            mailService.connectImap(account.props, account.imap).use { store ->
+                val destFolder = destFolderFinder(store.defaultFolder as IMAPFolder)
+                    ?: throw MessagingException("Destination folder not found")
+                destFolder.open(Folder.READ_WRITE)
+
+                val srcFolderName = db.accountDao().getFolderById(message.folderId)!!.name
+                val srcFolder = store.defaultFolder.getFolder(srcFolderName) as IMAPFolder
+                srcFolder.open(Folder.READ_WRITE)
+
+                val remoteMsg = srcFolder.getMessage(message.msgNum)
+                srcFolder.moveMessages(arrayOf(remoteMsg), destFolder)
+
+                val destFolderId = db.accountDao().getOrInsertFolder(destFolder.name, account.id).toInt()
+                db.messageDao().insert(message.copy(id = 0, folderId = destFolderId))
+            }
+        }
     }
 }

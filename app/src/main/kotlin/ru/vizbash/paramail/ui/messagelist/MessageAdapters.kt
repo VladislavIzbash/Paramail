@@ -27,12 +27,17 @@ class MessageViewHolder(
     view: View,
     private val onMessageClickListener: (MessageWithRecipients) -> Unit,
 ) : RecyclerView.ViewHolder(view) {
+    var boundItem: MessageWithRecipients? = null
+        private set
+
     private val ui = ItemMessageBinding.bind(view)
 
     private val timeFormat = DateFormat.getTimeFormat(view.context)
     private val dateFormat = DateFormat.getMediumDateFormat(view.context)
 
     fun bind(message: MessageWithRecipients, highlight: String?) {
+        boundItem = message
+
         ui.mailSubject.text = if (highlight == null) {
             message.msg.subject
         } else {

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    tools:context=".ui.settings.SettingsFragment"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/preferences_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:name="ru.vizbash.paramail.ui.settings.PreferencesFragment"
+        tools:layout="@layout/attachment"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="10dp"
+        style="@style/TextAppearance.MaterialComponents.Subtitle2"
+        android:text="@string/account_management"
+        android:textColor="?colorPrimary"/>
+
+    <ListView
+        android:id="@+id/account_list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        app:icon="@drawable/ic_plus"
+        style="?attr/materialButtonOutlinedStyle"
+        android:text="@string/add_account" />
+
+</LinearLayout>

@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import ru.vizbash.paramail.mail.FetchState
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.mail.MessageService
+import ru.vizbash.paramail.storage.message.Message
 import ru.vizbash.paramail.storage.message.MessageWithRecipients
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
@@ -99,4 +100,16 @@ class MessageListModel @Inject constructor(
     }
 
     fun searchMessages(query: String) = messageService.searchMessages(query)
+
+    fun moveToSpam(message: Message) {
+        viewModelScope.launch {
+            messageService.moveToSpam(message)
+        }
+    }
+
+    fun moveToArchive(message: Message) {
+        viewModelScope.launch {
+            messageService.moveToArchive(message)
+        }
+    }
 }

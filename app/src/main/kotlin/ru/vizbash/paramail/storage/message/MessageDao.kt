@@ -2,6 +2,7 @@ package ru.vizbash.paramail.storage.message
 
 import androidx.paging.PagingSource
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -32,6 +33,9 @@ interface MessageDao {
             "AND (LOWER(subject) LIKE LOWER(:pattern) OR LOWER(a.address || a.personal) LIKE LOWER(:pattern)) " +
             "ORDER BY msgnum DESC")
     fun searchEnvelopes(accountId: Int, folderId: Int, pattern: String): Flow<List<MessageWithRecipients>>
+
+    @Delete
+    suspend fun delete(message: Message)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(message: Message): Long

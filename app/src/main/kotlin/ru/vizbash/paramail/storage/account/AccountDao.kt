@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -28,4 +29,15 @@ interface AccountDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFolders(folders: List<FolderEntity>): List<Long>
+
+    @Transaction
+    suspend fun getOrInsertFolder(name: String, accountId: Int): Long {
+        val folder = getFolderByName(name, accountId)
+        return if (folder != null) {
+            folder.id.toLong()
+        } else {
+            val entity = FolderEntity(0, accountId, name)
+            insertFolders(listOf(entity)).first()
+        }
+    }
 }

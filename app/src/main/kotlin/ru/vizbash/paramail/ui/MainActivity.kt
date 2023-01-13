@@ -10,12 +10,10 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.content.edit
 import androidx.core.os.bundleOf
 import androidx.core.view.forEach
-import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavOptions
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
@@ -196,7 +194,10 @@ class MainActivity : AppCompatActivity() {
         ui.navigationView.setNavigationItemSelectedListener { item ->
             when {
                 item.itemId == R.id.item_add_account -> {
-                    navController.navigate(R.id.action_global_accountSetupWizardFragment)
+                    navController.navigate(R.id.accountSetupWizardFragment)
+                }
+                item.itemId == R.id.item_settings -> {
+                    navController.navigate(R.id.settingsFragment)
                 }
                 item.groupId == ACCOUNT_GROUP -> {
                     onNavigationItemSelected(item.itemId, resolveFolderId(DEFAULT_FOLDER))
@@ -212,7 +213,7 @@ class MainActivity : AppCompatActivity() {
             false
         }
 
-        menu.add(Menu.NONE, Menu.NONE, 2001, R.string.settings).apply {
+        menu.add(Menu.NONE, R.id.item_settings, 2001, R.string.settings).apply {
             setIcon(R.drawable.ic_settings)
         }
 
@@ -240,7 +241,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 menu.add(ACCOUNT_GROUP, R.id.item_add_account, Menu.NONE, R.string.add_account)
                     .apply {
-                        setIcon(R.drawable.ic_add)
+                        setIcon(R.drawable.ic_plus)
                     }
             }
         }

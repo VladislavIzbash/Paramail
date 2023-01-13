@@ -84,9 +84,15 @@ class MessageListFragment : Fragment() {
 
         ui.messageList.adapter = ConcatAdapter(messageAdapter, loadStateAdapter)
 
-        val touchCallback = MessageTouchCallback(ui.root)
+        val touchCallback = MessageTouchCallback(requireContext())
         touchCallback.swipeStateListener = { isSwiping ->
             ui.root.isEnabled = !isSwiping
+        }
+        touchCallback.onArchiveListener = {
+            model.moveToArchive((it as MessageViewHolder).boundItem!!.msg)
+        }
+        touchCallback.onSpamListener = {
+            model.moveToSpam((it as MessageViewHolder).boundItem!!.msg)
         }
         ItemTouchHelper(touchCallback).attachToRecyclerView(ui.messageList)
 
