@@ -56,11 +56,11 @@ class MessageService(
     private val _updateState = MutableStateFlow(FetchState.DONE)
     val updateState = _updateState.asStateFlow()
 
-    private suspend inline fun <R> useFolder(crossinline block: suspend (IMAPFolder) -> R): R {
+    private suspend inline fun <R> useFolder(mode: Int = Folder.READ_ONLY, crossinline block: suspend (IMAPFolder) -> R): R {
         return withContext(Dispatchers.IO) {
             mailService.connectImap(account.props, account.imap).use { store ->
                 val folder = store.defaultFolder.getFolder(folderEntity.name).apply {
-                    open(Folder.READ_ONLY)
+                    open(mode)
                 }
 
                 Log.d(TAG, "${account.imap.creds!!.login}: opened folder ${folderEntity.name}")
@@ -420,6 +420,14 @@ class MessageService(
             }
             byAttr ?: folder.list("Archive").firstOrNull()
         }
+    }
+
+    suspend fun markAsSeen(message: Message) {
+        useFolder(Folder.READ_WRITE) {
+            it.getMessage(message.msgNum).setFlag(Flags.Flag.SEEN, true)
+        }
+
+        db.messageDao().update(message.copy(isUnread = false))
     }
 
     private suspend fun moveToFolder(message: Message, destFolderFinder: (IMAPFolder) -> Folder?) {

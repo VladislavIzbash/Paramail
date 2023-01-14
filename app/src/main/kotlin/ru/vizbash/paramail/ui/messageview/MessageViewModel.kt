@@ -28,7 +28,10 @@ class MessageViewModel @Inject constructor(
     }
 
     val message = viewModelScope.async {
-        messageService.await().getById(messageId)!!
+        val messageService = messageService.await()
+        messageService.getById(messageId)!!.also {
+            messageService.markAsSeen(it.msg)
+        }
     }
     val messageBody = viewModelScope.async {
         messageService.await().getMessageBody(message.await().msg)
