@@ -11,8 +11,6 @@ import ru.vizbash.paramail.mail.FetchState
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.mail.MessageService
 import ru.vizbash.paramail.storage.message.Message
-import ru.vizbash.paramail.storage.message.MessageWithRecipients
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 class ProgressVisibility(
@@ -57,7 +55,7 @@ class MessageListModel @Inject constructor(
         messageService = mailService.getMessageService(accountId, folderName)
 
         viewModelScope.launch {
-            messageService.startMessageListUpdate()
+            messageService.startMessageUpdate()
 
             _progressVisibility.value = ProgressVisibility(
                 general = true,
@@ -71,7 +69,7 @@ class MessageListModel @Inject constructor(
     }
 
     fun updateMessages() {
-        messageService.startMessageListUpdate()
+        messageService.startMessageUpdate()
     }
 
     fun onLoadedFirstPage() {
@@ -80,7 +78,7 @@ class MessageListModel @Inject constructor(
 
     private suspend fun observeLoadState() {
         messages.collect {
-            val fetchState = messageService.fetchState.value
+            val fetchState = messageService.updateState.value
             _progressVisibility.value = ProgressVisibility(
                 general = false,
                 refresh = fetchState == FetchState.FETCHING_NEW || fetchState == FetchState.FETCHING_OLD,
@@ -90,7 +88,7 @@ class MessageListModel @Inject constructor(
     }
 
     private suspend fun observeFetchState() {
-        messageService.fetchState.collect {
+        messageService.updateState.collect {
             _progressVisibility.value = ProgressVisibility(
                 general = it == FetchState.FETCHING_OLD && !loadedFirstPage,
                 refresh = it == FetchState.DONE || it == FetchState.ERROR,

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 interface MessageDao {
     companion object {
         private const val MESSAGE_SELECT = "SELECT * FROM messages " +
-                "WHERE account_id = :accountId AND folder_id = :folderId "
+                "WHERE account_id = :accountId AND folder_id = :folderId"
     }
 
     @Transaction
@@ -25,6 +25,10 @@ interface MessageDao {
 
     @Query("$MESSAGE_SELECT ORDER BY msgnum ASC LIMIT 1")
     suspend fun getOldest(accountId: Int, folderId: Int): Message?
+
+    @Transaction
+    @Query("$MESSAGE_SELECT AND msgnum BETWEEN :startNum AND :endNum ORDER BY msgnum")
+    suspend fun getInRange(accountId: Int, folderId: Int, startNum: Int, endNum: Int): List<MessageWithRecipients>
 
     @Transaction
     @Query("SELECT m.* FROM messages m " +
@@ -81,6 +85,10 @@ interface MessageDao {
     @Transaction
     suspend fun insertMessagesWithRecipients(messages: List<MessageWithRecipients>) {
         for (message in messages) {
+            if (getByMsgNum(message.msg.msgNum) != null) {
+                continue
+            }
+
             val fromId = insertAddress(message.from)
             val toId = insertAddress(message.to)
             val msgId = insert(message.msg.copy(

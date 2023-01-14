@@ -53,8 +53,8 @@ class MessageService(
 
     private val longDateFormat = DateFormat.getLongDateFormat(context)
 
-    private val _fetchState = MutableStateFlow(FetchState.DONE)
-    val fetchState = _fetchState.asStateFlow()
+    private val _updateState = MutableStateFlow(FetchState.DONE)
+    val updateState = _updateState.asStateFlow()
 
     private suspend inline fun <R> useFolder(crossinline block: suspend (IMAPFolder) -> R): R {
         return withContext(Dispatchers.IO) {
@@ -105,8 +105,11 @@ class MessageService(
         )
     }
 
-    private suspend fun downloadMessageRange(folder: IMAPFolder, startNum: Int, endNum: Int) {
-        delay(5000)
+    private suspend fun downloadMessageRange(
+        folder: IMAPFolder,
+        startNum: Int,
+        endNum: Int,
+    ) {
         for (msgNum in endNum downTo startNum step FETCH_COUNT) {
             val pageStart = max(msgNum - FETCH_COUNT + 1, startNum)
 
@@ -120,14 +123,30 @@ class MessageService(
         }
     }
 
-    fun startMessageListUpdate() {
+    private suspend fun fetchNewMessages(folder: IMAPFolder): IntRange {
+        val localRecent = db.messageDao().getMostRecent(account.id, folderEntity.id)
+        if (localRecent?.msgNum == null || localRecent.msgNum == folder.messageCount) {
+            Log.d(TAG, "${folderEntity.name} already up to date")
+            return folder.messageCount until folder.messageCount
+        }
+
+        downloadMessageRange(folder, localRecent.msgNum, folder.messageCount)
+        return localRecent.msgNum..folder.messageCount
+    }
+
+    suspend fun fetchNewMessages(): List<MessageWithRecipients> {
+        val newRange = useFolder { fetchNewMessages(it) }
+        return db.messageDao().getInRange(account.id, folderEntity.id, newRange.first, newRange.last)
+    }
+
+    fun startMessageUpdate() {
         fetchJob?.cancel()
         fetchJob = coroutineScope.launch {
             try {
                 useFolder { folder ->
                     Log.d(TAG, "starting message list update for folder ${folderEntity.name}")
 
-                    _fetchState.value = FetchState.FETCHING_OLD
+                    _updateState.value = FetchState.FETCHING_OLD
 
                     val localOldest = db.messageDao().getOldest(account.id, folderEntity.id)?.msgNum
                     if (localOldest == null || localOldest > 1) {
@@ -135,28 +154,21 @@ class MessageService(
                         downloadMessageRange(folder, 1, localOldest?.minus(1) ?: folder.messageCount)
                     }
 
-                    if (!folder.hasNewMessages()) {
-                        Log.d(TAG, "${folderEntity.name} already up to date")
-                        _fetchState.value = FetchState.DONE
-                        return@useFolder
-                    }
+                    _updateState.value = FetchState.FETCHING_NEW
 
-                    _fetchState.value = FetchState.FETCHING_NEW
+                    fetchNewMessages(folder)
 
-                    val localRecent = db.messageDao().getMostRecent(account.id, folderEntity.id)
-                    downloadMessageRange(folder, localRecent?.msgNum ?: 1, folder.messageCount)
-
-                    _fetchState.value = FetchState.DONE
+                    _updateState.value = FetchState.DONE
                 }
             } catch (e: MessagingException) {
+                Log.w(TAG, "error fetching messages")
                 e.printStackTrace()
-                Log.d(TAG, "error fetching messages, retrying in 10 secs")
 
                 delay(10.toDuration(DurationUnit.SECONDS))
 
                 fetchJob = null
-                _fetchState.value = FetchState.ERROR
-                startMessageListUpdate()
+                _updateState.value = FetchState.ERROR
+                startMessageUpdate()
             }
         }
     }

@@ -1,12 +1,17 @@
 package ru.vizbash.paramail.ui
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.os.bundleOf
 import androidx.core.view.forEach
@@ -96,6 +101,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch { observeMessageSend() }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            val launcher = registerForActivityResult(RequestPermission()) {}
+            launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -282,6 +295,9 @@ class MainActivity : AppCompatActivity() {
                     }
                     MessageSendState.Sent -> {
                         Snackbar.make(ui.root, R.string.message_sent, Snackbar.LENGTH_SHORT).show()
+
+                        getSharedPreferences(MessageComposerFragment.SHARED_PREFS_NAME, Context.MODE_PRIVATE)
+                            .edit { clear() }
                     }
                     MessageSendState.Error -> {
                         Snackbar.make(ui.root, R.string.message_send_error, Snackbar.LENGTH_SHORT).show()

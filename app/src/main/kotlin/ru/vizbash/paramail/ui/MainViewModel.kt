@@ -63,6 +63,7 @@ class MainViewModel @Inject constructor(
                 mailService
                     .getMessageService(accountId, message.origMsgFolder ?: DEFAULT_FOLDER)
                     .sendMessage(message)
+
                 _messageSendState.value = MessageSendState.Sent
             } catch (e: Exception) {
                 e.printStackTrace()

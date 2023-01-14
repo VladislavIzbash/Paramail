@@ -45,8 +45,6 @@ class MessageComposerFragment : Fragment() {
         const val ARG_COMPOSED_MESSAGE = "message"
 
         const val SHARED_PREFS_NAME = "composer"
-
-        const val KEY_TO = "to"
     }
 
     @Inject lateinit var mailService: MailService

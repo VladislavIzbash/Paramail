@@ -1,9 +1,12 @@
 package ru.vizbash.paramail.ui.messagelist
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.app.AlertDialog
+import androidx.core.content.edit
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -62,12 +65,7 @@ class MessageListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         (requireActivity() as MainActivity).setFolderName(model.folderName)
 
-        ui.composeMessageButton.setOnClickListener {
-            val args = bundleOf(
-                MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
-            )
-            findNavController().navigate(R.id.action_messageListFragment_to_messageComposerFragment, args)
-        }
+        ui.composeMessageButton.setOnClickListener { onComposeClicked() }
 
         ui.messageList.addItemDecoration(DividerItemDecoration(
             requireContext(),
@@ -163,5 +161,33 @@ class MessageListFragment : Fragment() {
             MessageViewFragment.ARG_MESSAGE_ID to msg.msg.id,
         )
         findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment, args)
+    }
+
+    private fun onComposeClicked() {
+        val prefs = requireContext()
+            .getSharedPreferences(MessageComposerFragment.SHARED_PREFS_NAME, Context.MODE_PRIVATE)
+
+        if (prefs.getString("text", "") != "") {
+            AlertDialog.Builder(requireContext())
+                .setMessage(R.string.open_saved_message_dialog)
+                .setPositiveButton(R.string.yes) { _, _ ->
+                    navigateToComposer()
+                }
+                .setNegativeButton(R.string.no) { _, _ ->
+                    prefs.edit { clear() }
+                    navigateToComposer()
+                }
+                .show()
+        } else {
+            navigateToComposer()
+        }
+    }
+
+    private fun navigateToComposer() {
+        val args = bundleOf(
+            MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
+        )
+        findNavController().navigate(R.id.action_messageListFragment_to_messageComposerFragment, args)
+
     }
 }

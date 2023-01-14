@@ -63,4 +63,9 @@
     <string name="forward_block_header">------ Пересылаемое сообщение ------\nОт кого: %1$s\nКому: %2$s\nДата: %3$s\nТема: %4$s\n\n</string>
     <string name="message_check_interval">Интервал проверки новых сообщений, мин</string>
     <string name="account_management">Управление аккаунтами</string>
+    <string name="message_channel_name">Входящие письма</string>
+    <string name="new_message">Новое письмо</string>
+    <string name="open_saved_message_dialog">У вас есть неотправленное письмо.\nПродолжить редактирование?</string>
+    <string name="yes">Да</string>
+    <string name="no">Нет</string>
 </resources>
