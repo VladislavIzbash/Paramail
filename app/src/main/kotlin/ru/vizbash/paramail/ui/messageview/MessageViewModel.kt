@@ -8,7 +8,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.withContext
 import ru.vizbash.paramail.mail.ComposedMessage
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.message.Attachment
@@ -30,7 +29,11 @@ class MessageViewModel @Inject constructor(
     val message = viewModelScope.async {
         val messageService = messageService.await()
         messageService.getById(messageId)!!.also {
-            messageService.markAsSeen(it.msg)
+            try {
+                messageService.markAsSeen(it.msg)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
     val messageBody = viewModelScope.async {
@@ -39,11 +42,16 @@ class MessageViewModel @Inject constructor(
 
     val downloadProgress = MutableStateFlow(0F)
 
-    fun downloadAttachmentAsync(attachment: Attachment): Deferred<Uri> {
+    fun downloadAttachmentAsync(attachment: Attachment): Deferred<Uri?> {
         return viewModelScope.async {
-            messageService.await().downloadAttachment(attachment) {
-                downloadProgress.value = it
-            }!!
+            try {
+                messageService.await().downloadAttachment(attachment) {
+                    downloadProgress.value = it
+                }!!
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
         }
 
         // TODO: обработка ошибок

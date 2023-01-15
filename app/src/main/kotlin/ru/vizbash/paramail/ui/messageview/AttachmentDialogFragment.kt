@@ -29,7 +29,7 @@ class AttachmentDialogFragment(
     private val attachmentMime = attachment.mime.split(';').first()
     private lateinit var saveAttachmentLauncher: ActivityResultLauncher<String>
 
-    private lateinit var uriDeferred: Deferred<Uri>
+    private lateinit var uriDeferred: Deferred<Uri?>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +41,7 @@ class AttachmentDialogFragment(
 
             val uri = runBlocking { uriDeferred.await() }
 
-            val input = requireContext().contentResolver.openInputStream(uri)!!
+            val input = requireContext().contentResolver.openInputStream(uri!!)!!
             val output = requireContext().contentResolver.openOutputStream(saveUri)!!
 
             input.use { output.use { input.copyTo(output) } }
@@ -55,7 +55,7 @@ class AttachmentDialogFragment(
 
         model.downloadProgress.value = 0F
 
-        ui.name.text = getString(R.string.downloading, attachment.fileName)
+        ui.title.text = getString(R.string.downloading, attachment.fileName)
         ui.cancelButton.isVisible = true
         ui.downloadProgress.isVisible = true
         ui.saveButton.isVisible = false
@@ -75,7 +75,12 @@ class AttachmentDialogFragment(
         }
 
         lifecycleScope.launch {
-            onDownloadFinished(uriDeferred.await())
+            val uri = uriDeferred.await()
+            if (uri != null) {
+                onDownloadFinished(uri)
+            } else {
+                ui.title.text = getString(R.string.cannot_download, attachment.fileName)
+            }
         }
 
         return object : Dialog(requireContext()) {
@@ -91,7 +96,7 @@ class AttachmentDialogFragment(
     }
 
     private fun onDownloadFinished(uri: Uri) {
-        ui.name.text = getString(R.string.downloaded, attachment.fileName)
+        ui.title.text = getString(R.string.downloaded, attachment.fileName)
         ui.cancelButton.isVisible = false
         ui.openButton.isVisible = true
         ui.saveButton.isVisible = true

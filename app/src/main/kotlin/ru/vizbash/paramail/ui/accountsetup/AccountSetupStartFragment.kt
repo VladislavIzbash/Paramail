@@ -1,6 +1,5 @@
 package ru.vizbash.paramail.ui.accountsetup
 
-import android.content.Context
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -10,12 +9,9 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.fragment.app.Fragment
 import androidx.hilt.navigation.fragment.hiltNavGraphViewModels
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.navGraphViewModels
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.RecyclerView
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupStartBinding
@@ -131,7 +127,7 @@ class AccountSetupStartFragment : Fragment() {
                 }
 
                 ui.icon.setImageDrawable(type.icon)
-                ui.name.text = type.name
+                ui.title.text = type.name
             }
         }
     }

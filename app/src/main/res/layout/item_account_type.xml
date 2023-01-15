@@ -16,7 +16,7 @@
         android:src="@drawable/other_mail_logo" />
 
     <TextView
-        android:id="@+id/name"
+        android:id="@+id/title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         style="@style/TextAppearance.MaterialComponents.Subtitle1"

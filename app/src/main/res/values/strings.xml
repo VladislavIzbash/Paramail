@@ -20,6 +20,7 @@
     <string name="default_imap_port">993</string>
     <string name="connection_error">Ошибка подключения</string>
     <string name="auth_error">Ошибка аутентификации</string>
+    <string name="error_occurred">Произошла ошибка</string>
     <string name="no_accounts">У вас пока нет аккаунтов</string>
     <string name="add_account">Добавить аккаунт</string>
     <string name="getting_started">Начало работы</string>
@@ -42,6 +43,7 @@
     <string name="cancel">Отмена</string>
     <string name="downloading">Загрузка %1$s</string>
     <string name="downloaded">%1$s загружен</string>
+    <string name="cannot_download">Не удалось загрузить %1$s</string>
     <string name="error_loading_message_list">Ошибка загрузки списка писем</string>
     <string name="error_loading_message">Ошибка загрузки письма</string>
     <string name="try_again">Повторить</string>

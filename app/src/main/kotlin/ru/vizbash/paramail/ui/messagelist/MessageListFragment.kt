@@ -20,8 +20,8 @@ import androidx.paging.LoadState
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
@@ -96,6 +96,10 @@ class MessageListFragment : Fragment() {
 
         val messageSearchAdapter = ListMessageAdapter()
         messageSearchAdapter.onMessageClickListener = this::onMessageClicked
+
+        model.errorListener = {
+            Snackbar.make(ui.root, R.string.error_occurred, Snackbar.LENGTH_SHORT).show()
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             model.fetchHistory()

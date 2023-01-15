@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.ContactsContract.CommonDataKinds.Im
 import android.provider.MediaStore
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -94,6 +93,7 @@ class MessageComposerFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        @Suppress("DEPRECATION")
         composed = requireArguments().getParcelable(ARG_COMPOSED_MESSAGE) ?: loadTemplate()
 
         ui.toInput.setText(composed.to)

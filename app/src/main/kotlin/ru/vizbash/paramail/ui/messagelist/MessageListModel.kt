@@ -38,6 +38,8 @@ class MessageListModel @Inject constructor(
 
     private var loadedFirstPage = false
 
+    var errorListener: () -> Unit = {}
+
     val messages by lazy {
         val pager = Pager(
             config = PagingConfig(
@@ -100,14 +102,21 @@ class MessageListModel @Inject constructor(
     fun searchMessages(query: String) = messageService.searchMessages(query)
 
     fun moveToSpam(message: Message) {
-        viewModelScope.launch {
-            messageService.moveToSpam(message)
-        }
+        launchCatching { messageService.moveToSpam(message) }
     }
 
     fun moveToArchive(message: Message) {
+        launchCatching { messageService.moveToArchive(message) }
+    }
+
+    private fun launchCatching(block: suspend () -> Unit) {
         viewModelScope.launch {
-            messageService.moveToArchive(message)
+            try {
+                block()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                errorListener()
+            }
         }
     }
 }
