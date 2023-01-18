@@ -70,4 +70,6 @@
     <string name="open_saved_message_dialog">У вас есть неотправленное письмо.\nПродолжить редактирование?</string>
     <string name="yes">Да</string>
     <string name="no">Нет</string>
+    <string name="invalid_email">Неверный формат адреса</string>
+    <string name="empty_field">Поле не может быть пустым</string>
 </resources>

@@ -5,9 +5,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.service.autofill.Validators
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ImageSpan
+import android.util.Patterns
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
@@ -216,6 +218,10 @@ class MessageComposerFragment : Fragment() {
     }
 
     private fun onSendClicked() {
+        if (!validate()) {
+            return
+        }
+
         val message = ComposedMessage(
             ui.subjectInput.text.toString(),
             ui.toInput.text.toString(),
@@ -245,5 +251,35 @@ class MessageComposerFragment : Fragment() {
                 origMsgFolder = getString("orig_msg_folder", null),
             )
         }
+    }
+
+    private fun validate(): Boolean {
+        var validated = true
+
+        if (ui.toInput.text.isNullOrEmpty()) {
+            ui.toInput.error = getString(R.string.empty_field)
+            validated = false
+        } else if (!Patterns.EMAIL_ADDRESS.matcher(ui.toInput.text).matches()) {
+            ui.toInput.error = getString(R.string.invalid_email)
+            validated = false
+        } else {
+            ui.toInput.error = null
+        }
+
+        if (!ccAddresses.all { Patterns.EMAIL_ADDRESS.matcher(it).matches() }) {
+            ui.ccInput.error = getString(R.string.invalid_email)
+            validated = false
+        } else {
+            ui.ccInput.error = null
+        }
+
+        if (ui.subjectInput.text.isNullOrEmpty()) {
+            ui.subjectInput.error = getString(R.string.empty_field)
+            validated = false
+        } else {
+            ui.subjectInput.error = null
+        }
+
+        return validated
     }
 }
