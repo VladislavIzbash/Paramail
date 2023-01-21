@@ -1,13 +1,7 @@
 package ru.vizbash.paramail.storage.message
 
 import androidx.paging.PagingSource
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Transaction
-import androidx.room.Update
+import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -73,8 +67,8 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE id = :id")
     suspend fun getById(id: Int): MessageWithRecipients?
 
-    @Query("SELECT * FROM messages WHERE msgnum = :num")
-    suspend fun getByMsgNum(num: Int): Message?
+    @Query("SELECT * FROM messages WHERE folder_id = :folderId AND msgnum = :num")
+    suspend fun getByMsgNum(folderId: Int, num: Int): Message?
 
     @Query("SELECT DISTINCT address FROM addresses " +
             "WHERE LOWER(address) LIKE LOWER(:pattern) " +
@@ -89,7 +83,7 @@ interface MessageDao {
     @Transaction
     suspend fun insertMessagesWithRecipients(messages: List<MessageWithRecipients>) {
         for (message in messages) {
-            if (getByMsgNum(message.msg.msgNum) != null) {
+            if (getByMsgNum(message.msg.folderId, message.msg.msgNum) != null) {
                 continue
             }
 

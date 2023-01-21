@@ -9,6 +9,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import ru.vizbash.paramail.mail.ComposedMessage
+import ru.vizbash.paramail.mail.MailException
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.message.Attachment
 import javax.inject.Inject
@@ -31,7 +32,7 @@ class MessageViewModel @Inject constructor(
         messageService.getById(messageId)!!.also {
             try {
                 messageService.markAsSeen(it.msg)
-            } catch (e: Exception) {
+            } catch (e: MailException) {
                 e.printStackTrace()
             }
         }
@@ -48,7 +49,7 @@ class MessageViewModel @Inject constructor(
                 messageService.await().downloadAttachment(attachment) {
                     downloadProgress.value = it
                 }!!
-            } catch (e: Exception) {
+            } catch (e: MailException) {
                 e.printStackTrace()
                 null
             }

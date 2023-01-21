@@ -15,8 +15,9 @@ import androidx.work.WorkerParameters
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
-import ru.vizbash.paramail.App
+import ru.vizbash.paramail.ParamailApp
 import ru.vizbash.paramail.R
+import ru.vizbash.paramail.mail.MailException
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.mail.MessageService
 import ru.vizbash.paramail.storage.message.MessageWithRecipients
@@ -49,7 +50,7 @@ class InboxUpdateWorker @AssistedInject constructor(
             try {
                 val messages = messageService.fetchNewMessages()
                 messages.forEach { createNotification(messageService, it, account.id) }
-            } catch (e: Exception) {
+            } catch (e: MailException) {
                 Log.w(TAG, "failed to update messages for ${account.imap.creds!!.login}")
                 e.printStackTrace()
 
@@ -79,7 +80,7 @@ class InboxUpdateWorker @AssistedInject constructor(
             ))
             .createPendingIntent()
 
-        val builder = NotificationCompat.Builder(context, App.MESSAGE_CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, ParamailApp.MESSAGE_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_envelope)
             .setContentTitle(context.getString(R.string.new_message))
             .setContentText(message.msg.subject)

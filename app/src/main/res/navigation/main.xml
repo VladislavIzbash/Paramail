@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/gettingStartedFragment">
+    app:startDestination="@id/messageListFragment">
 
     <fragment
         android:id="@+id/gettingStartedFragment"
@@ -24,7 +24,7 @@
 
         <action
             android:id="@+id/action_accountSetupWizardFragment_to_messageListFragment"
-            app:popUpTo="@null"
+            app:popUpTo="@id/messageListFragment"
             app:destination="@id/messageListFragment" />
     </fragment>
 
@@ -39,6 +39,10 @@
         <action
             android:id="@+id/action_messageListFragment_to_messageComposerFragment"
             app:destination="@id/messageComposerFragment" />
+        <action
+            android:id="@+id/action_messageListFragment_to_gettingStartedFragment"
+            app:destination="@id/gettingStartedFragment"
+            app:popUpTo="@id/gettingStartedFragment"/>
     </fragment>
 
     <fragment
@@ -46,6 +50,7 @@
         android:name="ru.vizbash.paramail.ui.messageview.MessageViewFragment"
         android:label="fragment_message_view"
         tools:layout="@layout/fragment_message_view" >
+
         <action
             android:id="@+id/action_messageViewFragment_to_messageComposerFragment"
             app:destination="@id/messageComposerFragment" />

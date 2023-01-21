@@ -131,7 +131,7 @@ class MessageService(
         }
 
         downloadMessageRange(folder, localRecent.msgNum, folder.messageCount)
-        return localRecent.msgNum..folder.messageCount
+        return (localRecent.msgNum + 1)..folder.messageCount
     }
 
     suspend fun fetchNewMessages(): List<MessageWithRecipients> {
@@ -423,6 +423,10 @@ class MessageService(
     }
 
     suspend fun markAsSeen(message: Message) {
+        if (!message.isUnread) {
+            return
+        }
+
         useFolder(Folder.READ_WRITE) {
             it.getMessage(message.msgNum).setFlag(Flags.Flag.SEEN, true)
         }

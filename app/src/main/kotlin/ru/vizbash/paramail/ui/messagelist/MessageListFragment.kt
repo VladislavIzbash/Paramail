@@ -22,8 +22,11 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import ru.vizbash.paramail.ParamailApp
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentMessageListBinding
 import ru.vizbash.paramail.storage.message.MessageWithRecipients
@@ -46,6 +49,32 @@ class MessageListFragment : Fragment() {
     private val model: MessageListModel by viewModels()
     private val mainModel: MainViewModel by activityViewModels()
 
+    private lateinit var folderName: String
+    private var accountId: Int? = null
+
+    private val loadStateAdapter = MessageLoadStateAdapter()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        accountId = arguments?.getInt(ARG_ACCOUNT_ID)
+        folderName = arguments?.getString(ARG_FOLDER_NAME) ?: ParamailApp.DEFAULT_FOLDER
+
+        if (accountId != null) {
+            return
+        }
+
+        runBlocking(Dispatchers.Default) {
+            val init = (requireActivity().application as ParamailApp).getInitialFolder()
+            accountId = init?.first
+            folderName = init?.second ?: ParamailApp.DEFAULT_FOLDER
+        }
+
+        if (accountId == null) {
+            findNavController().navigate(R.id.action_messageListFragment_to_gettingStartedFragment)
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -60,10 +89,12 @@ class MessageListFragment : Fragment() {
         _ui = null
     }
 
-    private val loadStateAdapter = MessageLoadStateAdapter()
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        (requireActivity() as MainActivity).setFolderName(model.folderName)
+        if (folderName == null) {
+            return
+        }
+
+        (requireActivity() as MainActivity).setFolderName(folderName!!)
 
         ui.composeMessageButton.setOnClickListener { onComposeClicked() }
 
@@ -102,7 +133,7 @@ class MessageListFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            model.fetchHistory()
+            model.initialize(accountId!!, folderName!!)
 
             launch {
                 model.messages.collectLatest {
@@ -160,8 +191,8 @@ class MessageListFragment : Fragment() {
 
     private fun onMessageClicked(msg: MessageWithRecipients) {
         val args = bundleOf(
-            MessageViewFragment.ARG_ACCOUNT_ID to model.accountId,
-            MessageViewFragment.ARG_FOLDER_NAME to model.folderName,
+            MessageViewFragment.ARG_ACCOUNT_ID to accountId,
+            MessageViewFragment.ARG_FOLDER_NAME to folderName,
             MessageViewFragment.ARG_MESSAGE_ID to msg.msg.id,
         )
         findNavController().navigate(R.id.action_messageListFragment_to_messageViewFragment, args)
@@ -189,7 +220,7 @@ class MessageListFragment : Fragment() {
 
     private fun navigateToComposer() {
         val args = bundleOf(
-            MessageComposerFragment.ARG_ACCOUNT_ID to model.accountId,
+            MessageComposerFragment.ARG_ACCOUNT_ID to accountId,
         )
         findNavController().navigate(R.id.action_messageListFragment_to_messageComposerFragment, args)
 

@@ -8,7 +8,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import ru.vizbash.paramail.ParamailApp
 import ru.vizbash.paramail.mail.ComposedMessage
+import ru.vizbash.paramail.mail.MailException
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.account.FolderEntity
 import javax.inject.Inject
@@ -38,14 +40,13 @@ class MainViewModel @Inject constructor(
     private val _folderList = MutableStateFlow(listOf<FolderEntity>())
     val folderList = _folderList.asStateFlow()
 
-    fun updateFolderList(accountId: Int) {
-        viewModelScope.launch {
-            try {
-                _folderList.value = mailService.folderList(accountId)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+    suspend fun updateFolderList(accountId: Int) {
+        try {
+            _folderList.value = mailService.folderList(accountId)
+        } catch (e: MailException) {
+            e.printStackTrace()
         }
+
     }
 
     private val _messageSendState = MutableStateFlow<MessageSendState?>(null)
@@ -61,11 +62,11 @@ class MainViewModel @Inject constructor(
 
             try {
                 mailService
-                    .getMessageService(accountId, message.origMsgFolder ?: DEFAULT_FOLDER)
+                    .getMessageService(accountId, message.origMsgFolder ?: ParamailApp.DEFAULT_FOLDER)
                     .sendMessage(message)
 
                 _messageSendState.value = MessageSendState.Sent
-            } catch (e: Exception) {
+            } catch (e: MailException) {
                 e.printStackTrace()
                 _messageSendState.value = MessageSendState.Error
             }

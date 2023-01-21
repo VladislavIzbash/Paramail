@@ -1,12 +1,13 @@
 package ru.vizbash.paramail.ui
 
+import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
@@ -24,12 +25,11 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.*
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import ru.vizbash.paramail.ParamailApp
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.ActivityMainBinding
 import ru.vizbash.paramail.storage.account.FolderEntity
@@ -43,11 +43,6 @@ private val STANDARD_FOLDER_NAMES = mapOf(
     "INBOX" to R.string.inbox,
 )
 
-private const val KEY_LAST_ACCOUNT_ID = "last_account_id"
-private const val KEY_LAST_FOLDER_NAME = "last_folder_name"
-
-const val DEFAULT_FOLDER = "INBOX"
-
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private lateinit var ui: ActivityMainBinding
@@ -56,7 +51,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var navController: NavController
 
-    private val prefs by lazy { getPreferences(Context.MODE_PRIVATE) }
+    private var accountId = -1
+    private var folderId = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,42 +68,50 @@ class MainActivity : AppCompatActivity() {
         appBarConfiguration = AppBarConfiguration(setOf(R.id.messageListFragment), ui.root)
         setupActionBarWithNavController(navController, appBarConfiguration)
 
-        navController.addOnDestinationChangedListener { _, _, _ ->
+        navController.addOnDestinationChangedListener { _, dest, args ->
             invalidateOptionsMenu()
             model.searchState.value = SearchState.Closed
-        }
 
-        drawerInit()
+            when (dest.id) {
+                R.id.gettingStartedFragment -> {
+                    supportActionBar?.setDisplayHomeAsUpEnabled(false)
+                }
+                R.id.messageListFragment -> {
+                    lifecycleScope.launch {
+                        val init = (application as ParamailApp).getInitialFolder() ?: return@launch
 
-        val lastAccountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, -1)
-        val accountId = if (lastAccountId == -1) {
-            runBlocking(Dispatchers.IO) {
-                model.accountList.first().firstOrNull()?.id
+                        model.updateFolderList(init.first)
+
+                        this@MainActivity.accountId = args?.getInt(MessageListFragment.ARG_ACCOUNT_ID)
+                            ?: init.first
+                        val folderName = args?.getString(MessageListFragment.ARG_FOLDER_NAME)
+                            ?: init.second
+                        folderId = resolveFolderId(folderName)
+
+                        val app = application as ParamailApp
+                        app.saveLastFolder(this@MainActivity.accountId, folderName)
+
+                        updateNavigationView()
+                    }
+                }
             }
-        } else {
-            lastAccountId
         }
 
-        val folderName = prefs.getString(KEY_LAST_FOLDER_NAME, DEFAULT_FOLDER)!!
+        checkNotifyPermission()
 
-        if (accountId != null) {
-            navigateToFolder(accountId, folderName)
-
-            lifecycleScope.launch {
-                model.updateFolderList(accountId)
-            }
-        } else {
-            supportActionBar?.setDisplayHomeAsUpEnabled(false)
-        }
+        initDrawerMenu()
 
         lifecycleScope.launch { observeMessageSend() }
+    }
 
+    private fun checkNotifyPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
 
-            val launcher = registerForActivityResult(RequestPermission()) {}
-            launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            val launcher = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
@@ -154,6 +158,7 @@ class MainActivity : AppCompatActivity() {
         return navController.navigateUp(appBarConfiguration) || super.onSupportNavigateUp()
     }
 
+
     private fun localizeFolderName(name: String): String {
         return STANDARD_FOLDER_NAMES[name]?.let { getString(it) } ?: name
     }
@@ -181,27 +186,18 @@ class MainActivity : AppCompatActivity() {
             MessageListFragment.ARG_FOLDER_NAME to folderName,
         )
         navController.navigate(R.id.messageListFragment, args, opts)
-
-        prefs.edit {
-            putInt(KEY_LAST_ACCOUNT_ID, accountId)
-            putString(KEY_LAST_FOLDER_NAME, folderName)
-        }
     }
 
-    private fun onNavigationItemSelected(accountId: Int, folderId: Int) {
-        navigateToFolder(accountId, resolveFolderName(folderId))
-
+    private fun updateNavigationView() {
         ui.navigationView.menu.forEach { item ->
             when (item.groupId) {
                 ACCOUNT_GROUP -> item.isChecked = item.itemId == accountId
                 FOLDER_GROUP -> item.isChecked = item.itemId == folderId
             }
         }
-
-        model.updateFolderList(accountId)
     }
 
-    private fun drawerInit() {
+    private fun initDrawerMenu() {
         val menu = ui.navigationView.menu
 
         ui.navigationView.setNavigationItemSelectedListener { item ->
@@ -213,11 +209,10 @@ class MainActivity : AppCompatActivity() {
                     navController.navigate(R.id.settingsFragment)
                 }
                 item.groupId == ACCOUNT_GROUP -> {
-                    onNavigationItemSelected(item.itemId, resolveFolderId(DEFAULT_FOLDER))
+                    navigateToFolder(item.itemId, resolveFolderName(folderId))
                 }
                 item.groupId == FOLDER_GROUP -> {
-                    val accountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, -1)
-                    onNavigationItemSelected(accountId, item.itemId)
+                    navigateToFolder(accountId, resolveFolderName(item.itemId))
                 }
                 else -> {}
             }
@@ -237,8 +232,6 @@ class MainActivity : AppCompatActivity() {
     private suspend fun menuObserveAccountList(menu: Menu) {
         repeatOnLifecycle(Lifecycle.State.STARTED) {
             model.accountList.filter(List<MailAccount>::isNotEmpty).collect { accountList ->
-                val lastAccountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, -1)
-
                 menu.removeGroup(ACCOUNT_GROUP)
 
                 accountList.forEachIndexed { i, account ->
@@ -249,7 +242,7 @@ class MainActivity : AppCompatActivity() {
                         account.imap.creds!!.login,
                     ).apply {
                         setIcon(R.drawable.ic_email)
-                        isChecked = account.id == lastAccountId
+                        isChecked = account.id == accountId
                     }
                 }
                 menu.add(ACCOUNT_GROUP, R.id.item_add_account, Menu.NONE, R.string.add_account)
@@ -265,15 +258,12 @@ class MainActivity : AppCompatActivity() {
             model.folderList.filter(List<FolderEntity>::isNotEmpty).collect { folderList ->
                 menu.removeGroup(FOLDER_GROUP)
 
-                val lastFolderName = prefs.getString(KEY_LAST_FOLDER_NAME, DEFAULT_FOLDER)!!
-                val lastFolderId = resolveFolderId(lastFolderName)
-
                 folderList.forEachIndexed { i, folder ->
                     val displayName = localizeFolderName(folder.name)
 
                     menu.add(FOLDER_GROUP, folder.id, 1000 + i, displayName).apply {
                         setIcon(R.drawable.ic_folder)
-                        isChecked = folder.id == lastFolderId
+                        isChecked = folder.id == folderId
                     }
                 }
             }

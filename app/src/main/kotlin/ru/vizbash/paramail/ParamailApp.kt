@@ -3,10 +3,12 @@ package ru.vizbash.paramail
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Context
 import android.os.Build
 import android.webkit.WebView
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.edit
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.preference.PreferenceManager
 import androidx.work.*
@@ -14,6 +16,7 @@ import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.background.InboxUpdateWorker
+import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.account.AccountDao
 import ru.vizbash.paramail.storage.account.Creds
 import ru.vizbash.paramail.storage.account.MailAccount
@@ -23,13 +26,19 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltAndroidApp
-class App : Application(), Configuration.Provider {
+class ParamailApp : Application(), Configuration.Provider {
     companion object {
         const val MESSAGE_CHANNEL_ID = "message_channel"
+        const val DEFAULT_FOLDER = "INBOX"
+
+        private const val LAST_FOLDER_PREFS = "last_folder"
+        private const val KEY_LAST_ACCOUNT_ID = "account_id"
+        private const val KEY_LAST_FOLDER = "last_folder"
     }
 
     @Inject lateinit var accountDao: AccountDao
     @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var mailService: MailService
 
     override fun onCreate() {
         super.onCreate()
@@ -108,5 +117,28 @@ class App : Application(), Configuration.Provider {
         )
 
         NotificationManagerCompat.from(this).createNotificationChannel(channel)
+    }
+
+    suspend fun getInitialFolder(): Pair<Int, String>? {
+        val prefs = getSharedPreferences(LAST_FOLDER_PREFS, Context.MODE_PRIVATE)
+        val accountList = mailService.accountList().first()
+
+        val lastAccountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, -1)
+        val accountId = if (accountList.any { it.id == lastAccountId }) {
+            lastAccountId
+        } else {
+            accountList.firstOrNull()?.id ?: return null
+        }
+
+        val initFolder = prefs.getString(KEY_LAST_FOLDER, DEFAULT_FOLDER)!!
+
+        return Pair(accountId, initFolder)
+    }
+
+    fun saveLastFolder(accountId: Int, folderName: String) {
+        getSharedPreferences(LAST_FOLDER_PREFS, Context.MODE_PRIVATE).edit {
+            putInt(KEY_LAST_ACCOUNT_ID, accountId)
+            putString(KEY_LAST_FOLDER, folderName)
+        }
     }
 }

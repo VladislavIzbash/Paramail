@@ -15,10 +15,13 @@ import ru.vizbash.paramail.storage.account.MailData
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.mail.MessagingException
 import javax.mail.Session
 import javax.mail.Transport
 
 private const val TAG = "MailService"
+
+typealias MailException = MessagingException
 
 @Singleton
 class MailService @Inject constructor(

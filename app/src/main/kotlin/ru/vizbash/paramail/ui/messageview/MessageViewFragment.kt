@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.AttachmentBinding
 import ru.vizbash.paramail.databinding.FragmentMessageViewBinding
+import ru.vizbash.paramail.mail.MailException
 import ru.vizbash.paramail.storage.message.Attachment
 import ru.vizbash.paramail.storage.message.MessageBody
 import ru.vizbash.paramail.ui.MessageComposerFragment
@@ -113,7 +114,7 @@ class MessageViewFragment : Fragment() {
                 }
 
                 inflateAttachments(attachments)
-            } catch (e: Exception) {
+            } catch (e: MailException) {
                 e.printStackTrace()
 
                 Snackbar.make(

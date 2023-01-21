@@ -1,13 +1,16 @@
 package ru.vizbash.paramail.ui.messagelist
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.paging.*
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.cachedIn
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.mail.FetchState
+import ru.vizbash.paramail.mail.MailException
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.mail.MessageService
 import ru.vizbash.paramail.storage.message.Message
@@ -20,13 +23,7 @@ class ProgressVisibility(
 )
 
 @HiltViewModel
-class MessageListModel @Inject constructor(
-    private val mailService: MailService,
-    savedState: SavedStateHandle,
-) : ViewModel() {
-    val accountId = savedState.get<Int>(MessageListFragment.ARG_ACCOUNT_ID)!!
-    val folderName = savedState.get<String>(MessageListFragment.ARG_FOLDER_NAME) ?: "INBOX"
-
+class MessageListModel @Inject constructor(private val mailService: MailService) : ViewModel() {
     private val _progressVisibility = MutableStateFlow(ProgressVisibility(
         general = true,
         fetchMore = false,
@@ -53,7 +50,7 @@ class MessageListModel @Inject constructor(
         pager.flow.cachedIn(viewModelScope)
     }
 
-    suspend fun fetchHistory() {
+    suspend fun initialize(accountId: Int, folderName: String) {
         messageService = mailService.getMessageService(accountId, folderName)
 
         viewModelScope.launch {
@@ -113,7 +110,7 @@ class MessageListModel @Inject constructor(
         viewModelScope.launch {
             try {
                 block()
-            } catch (e: Exception) {
+            } catch (e: MailException) {
                 e.printStackTrace()
                 errorListener()
             }
