@@ -21,6 +21,11 @@
         android:name="ru.vizbash.paramail.ui.accountsetup.AccountSetupWizardFragment"
         android:label="@string/account_setup_fragment_label"
         tools:layout="@layout/fragment_account_setup_wizard">
+
+        <action
+            android:id="@+id/action_accountSetupWizardFragment_to_messageListFragment"
+            app:popUpTo="@null"
+            app:destination="@id/messageListFragment" />
     </fragment>
 
     <fragment

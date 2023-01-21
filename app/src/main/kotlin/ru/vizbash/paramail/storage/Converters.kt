@@ -2,8 +2,7 @@ package ru.vizbash.paramail.storage
 
 import androidx.room.TypeConverter
 import java.io.ByteArrayOutputStream
-import java.util.Date
-import java.util.Properties
+import java.util.*
 
 class Converters {
     @TypeConverter
@@ -17,12 +16,6 @@ class Converters {
         p.store(output, null)
         return output.toByteArray()
     }
-
-    @TypeConverter
-    fun recipientsToString(recipients: List<String>) = recipients.joinToString(",")
-
-    @TypeConverter
-    fun stringToRecipients(s: String): List<String> = s.split(',')
 
     @TypeConverter
     fun dateToLong(date: Date) = date.time

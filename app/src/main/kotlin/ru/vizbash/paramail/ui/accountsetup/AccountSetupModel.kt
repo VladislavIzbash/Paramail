@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import ru.vizbash.paramail.mail.MailService
+import ru.vizbash.paramail.storage.account.MailAccount
 import ru.vizbash.paramail.storage.account.MailData
 import java.util.*
 import javax.inject.Inject
@@ -37,39 +38,43 @@ class AccountSetupModel @Inject constructor(
     var onNext: suspend () -> Unit = {}
 
     private val props = Properties()
-    private var smtpData: MailData? = null
-    private var imapData: MailData? = null
+    var smtpData: MailData? = null
+        private set
+    var imapData: MailData? = null
+        private set
 
     suspend fun prepareSmtp(props: Properties, smtpData: MailData): CheckResult {
-        try {
+        return try {
             mailService.connectSmtp(props, smtpData)
             this.smtpData = smtpData
             this.props += props
-            return CheckResult.Ok
+            CheckResult.Ok
         } catch (e: AuthenticationFailedException) {
-            return CheckResult.AuthError
+            CheckResult.AuthError
         } catch (e: MessagingException) {
-            return CheckResult.ConnError
+            e.printStackTrace()
+            CheckResult.ConnError
         }
     }
 
     suspend fun prepareImap(props: Properties, imapData: MailData): CheckResult {
-        try {
+        return try {
             mailService.connectImap(props, imapData)
             this.imapData = imapData
             this.props += props
-            return CheckResult.Ok
+            CheckResult.Ok
         } catch (e: AuthenticationFailedException) {
-            return CheckResult.AuthError
+            CheckResult.AuthError
         } catch (e: MessagingException) {
-            return CheckResult.ConnError
+            e.printStackTrace()
+            CheckResult.ConnError
         }
     }
 
-    suspend fun addAccount() {
-        requireNotNull(smtpData)
-        requireNotNull(imapData)
+    suspend fun addAccount(): MailAccount {
+        checkNotNull(smtpData)
+        checkNotNull(imapData)
 
-        mailService.addAccount(props, smtpData!!, imapData!!)
+        return mailService.addAccount(props, smtpData!!, imapData!!)
     }
 }

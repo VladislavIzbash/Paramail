@@ -1,10 +1,6 @@
 package ru.vizbash.paramail.storage.account
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Transaction
+import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -13,7 +9,7 @@ interface AccountDao {
     fun getAll(): Flow<List<MailAccount>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(account: MailAccount)
+    suspend fun insert(account: MailAccount): Long
 
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun getById(id: Int): MailAccount?

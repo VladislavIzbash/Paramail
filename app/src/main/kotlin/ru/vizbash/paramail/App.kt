@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.os.Build
 import android.webkit.WebView
 import androidx.annotation.RequiresApi
-import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.preference.PreferenceManager
@@ -19,7 +18,7 @@ import ru.vizbash.paramail.storage.account.AccountDao
 import ru.vizbash.paramail.storage.account.Creds
 import ru.vizbash.paramail.storage.account.MailAccount
 import ru.vizbash.paramail.storage.account.MailData
-import java.util.Properties
+import java.util.*
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 

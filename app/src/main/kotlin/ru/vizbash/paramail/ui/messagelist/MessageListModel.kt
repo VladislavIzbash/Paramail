@@ -25,7 +25,7 @@ class MessageListModel @Inject constructor(
     savedState: SavedStateHandle,
 ) : ViewModel() {
     val accountId = savedState.get<Int>(MessageListFragment.ARG_ACCOUNT_ID)!!
-    val folderName = savedState.get<String>(MessageListFragment.ARG_FOLDER_NAME)!!
+    val folderName = savedState.get<String>(MessageListFragment.ARG_FOLDER_NAME) ?: "INBOX"
 
     private val _progressVisibility = MutableStateFlow(ProgressVisibility(
         general = true,

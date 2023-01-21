@@ -19,7 +19,7 @@ class MessageViewModel @Inject constructor(
     savedState: SavedStateHandle,
 ) : ViewModel() {
     val accountId = savedState.get<Int>(MessageViewFragment.ARG_ACCOUNT_ID)!!
-    val messageId = savedState.get<Int>(MessageViewFragment.ARG_MESSAGE_ID)!!
+    private val messageId = savedState.get<Int>(MessageViewFragment.ARG_MESSAGE_ID)!!
 
     private val messageService = viewModelScope.async {
         val folderName = savedState.get<String>(MessageViewFragment.ARG_FOLDER_NAME)!!

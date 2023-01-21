@@ -72,11 +72,12 @@ class MailService @Inject constructor(
 
     fun accountList() = db.accountDao().getAll()
 
-    suspend fun addAccount(props: Properties, smtpData: MailData, imapData: MailData) {
+    suspend fun addAccount(props: Properties, smtpData: MailData, imapData: MailData): MailAccount {
         requireNotNull(imapData.creds)
 
         val account = MailAccount(0, props, smtpData, imapData)
-        db.accountDao().insert(account)
+        val id = db.accountDao().insert(account).toInt()
+        return account.copy(id = id)
     }
 
     suspend fun getMessageService(accountId: Int, folderName: String): MessageService {

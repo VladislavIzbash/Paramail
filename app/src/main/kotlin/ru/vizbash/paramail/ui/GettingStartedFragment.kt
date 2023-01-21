@@ -1,21 +1,14 @@
 package ru.vizbash.paramail.ui
 
-import android.content.Context
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.core.os.bundleOf
-import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.R
-import ru.vizbash.paramail.ui.messagelist.MessageListFragment
 
 @AndroidEntryPoint
 class GettingStartedFragment : Fragment() {

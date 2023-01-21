@@ -30,6 +30,13 @@ class AccountSetupImapFragment : Fragment() {
         return ui.root
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        model.smtpData!!.creds?.let { creds ->
+            ui.loginInput.setText(creds.login)
+            ui.passwordInput.setText(creds.secret)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
 
@@ -68,7 +75,6 @@ class AccountSetupImapFragment : Fragment() {
 
         when (val res = model.prepareImap(props, imapData)) {
             CheckResult.Ok -> {
-                model.addAccount()
                 model.wizardState.update {
                     it.copy(phase = WizardPhase.Done)
                 }

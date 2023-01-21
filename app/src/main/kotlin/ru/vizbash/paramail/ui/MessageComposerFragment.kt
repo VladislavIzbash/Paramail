@@ -5,7 +5,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
-import android.service.autofill.Validators
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ImageSpan

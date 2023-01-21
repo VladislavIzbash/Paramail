@@ -6,7 +6,6 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +25,7 @@ import androidx.navigation.ui.*
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -33,6 +33,7 @@ import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.ActivityMainBinding
 import ru.vizbash.paramail.storage.account.FolderEntity
+import ru.vizbash.paramail.storage.account.MailAccount
 import ru.vizbash.paramail.ui.messagelist.MessageListFragment
 
 private const val ACCOUNT_GROUP = 1
@@ -76,6 +77,8 @@ class MainActivity : AppCompatActivity() {
             model.searchState.value = SearchState.Closed
         }
 
+        drawerInit()
+
         val lastAccountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, -1)
         val accountId = if (lastAccountId == -1) {
             runBlocking(Dispatchers.IO) {
@@ -92,9 +95,6 @@ class MainActivity : AppCompatActivity() {
 
             lifecycleScope.launch {
                 model.updateFolderList(accountId)
-                model.folderList.first(List<FolderEntity>::isNotEmpty)
-
-                drawerInit()
             }
         } else {
             supportActionBar?.setDisplayHomeAsUpEnabled(false)
@@ -236,7 +236,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun menuObserveAccountList(menu: Menu) {
         repeatOnLifecycle(Lifecycle.State.STARTED) {
-            model.accountList.collect { accountList ->
+            model.accountList.filter(List<MailAccount>::isNotEmpty).collect { accountList ->
                 val lastAccountId = prefs.getInt(KEY_LAST_ACCOUNT_ID, -1)
 
                 menu.removeGroup(ACCOUNT_GROUP)
@@ -262,7 +262,7 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun menuObserveFolderList(menu: Menu) {
         repeatOnLifecycle(Lifecycle.State.STARTED) {
-            model.folderList.collect { folderList ->
+            model.folderList.filter(List<FolderEntity>::isNotEmpty).collect { folderList ->
                 menu.removeGroup(FOLDER_GROUP)
 
                 val lastFolderName = prefs.getString(KEY_LAST_FOLDER_NAME, DEFAULT_FOLDER)!!

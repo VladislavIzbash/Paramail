@@ -1,6 +1,5 @@
 package ru.vizbash.paramail.ui.settings
 
-import android.accounts.Account
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,7 +12,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.databinding.FragmentSettingsBinding
 import ru.vizbash.paramail.mail.MailService
-import ru.vizbash.paramail.storage.account.MailAccount
 import javax.inject.Inject
 
 @AndroidEntryPoint

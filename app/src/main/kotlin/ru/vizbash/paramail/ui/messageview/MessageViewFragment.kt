@@ -76,6 +76,7 @@ class MessageViewFragment : Fragment() {
         bodyWebView?.onResume()
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val timeFormat = DateFormat.getTimeFormat(view.context)
         val dateFormat = DateFormat.getMediumDateFormat(view.context)
@@ -96,7 +97,6 @@ class MessageViewFragment : Fragment() {
                 actionBar?.title = msg.msg.subject
 
                 ui.from.text = msg.from.toString()
-                @SuppressLint("SetTextI18n")
                 ui.date.text = "${dateFormat.format(msg.msg.date)}\n${timeFormat.format(msg.msg.date)}"
                 ui.recipients.text = (listOf(msg.to) + msg.cc).joinToString(", ")
 

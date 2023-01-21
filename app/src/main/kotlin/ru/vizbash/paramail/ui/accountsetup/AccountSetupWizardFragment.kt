@@ -4,8 +4,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.createViewModelLazy
 import androidx.hilt.navigation.HiltViewModelFactory
 import androidx.lifecycle.Lifecycle
@@ -19,19 +21,13 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import ru.vizbash.paramail.R
 import ru.vizbash.paramail.databinding.FragmentAccountSetupWizardBinding
+import ru.vizbash.paramail.ui.MainViewModel
+import ru.vizbash.paramail.ui.messagelist.MessageListFragment
 
 @AndroidEntryPoint
 class AccountSetupWizardFragment : Fragment() {
     private var _ui: FragmentAccountSetupWizardBinding? = null
     private val ui get() = _ui!!
-
-//    private val model: AccountSetupModel by viewModels(
-//        ownerProducer = {
-//            val navHost = childFragmentManager.findFragmentById(R.id.nav_host_fragment)
-//                as NavHostFragment
-//            navHost.navController.getViewModelStoreOwner(R.id.account_setup_wizard)
-//        }
-//    )
 
     private val model: AccountSetupModel by createViewModelLazy(
         viewModelClass = AccountSetupModel::class,
@@ -51,6 +47,8 @@ class AccountSetupWizardFragment : Fragment() {
             )
         }
     )
+
+    private val mainModel: MainViewModel by activityViewModels()
 
     private var stepJob: Job? = null
 
@@ -101,7 +99,12 @@ class AccountSetupWizardFragment : Fragment() {
                             })
                         }
                         is WizardPhase.Done -> {
-                            findNavController().popBackStack()
+                            val acc = model.addAccount()
+                            findNavController().navigate(
+                                R.id.action_accountSetupWizardFragment_to_messageListFragment,
+                                bundleOf(MessageListFragment.ARG_ACCOUNT_ID to acc.id),
+                            )
+                            mainModel.updateFolderList(acc.id)
                         }
                     }
                 }
