@@ -24,7 +24,7 @@ sealed class SearchState {
 }
 
 sealed class MessageSendState {
-    class AboutToSend(val delayMs: Long) : MessageSendState()
+    data class AboutToSend(val delayMs: Long) : MessageSendState()
     object Sent : MessageSendState()
     object Error : MessageSendState()
 }

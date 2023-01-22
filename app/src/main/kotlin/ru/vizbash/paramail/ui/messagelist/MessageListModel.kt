@@ -16,7 +16,7 @@ import ru.vizbash.paramail.mail.MessageService
 import ru.vizbash.paramail.storage.message.Message
 import javax.inject.Inject
 
-class ProgressVisibility(
+data class ProgressVisibility(
     val general: Boolean,
     val fetchMore: Boolean,
     val refresh: Boolean,

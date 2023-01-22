@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.ParamailApp
 import ru.vizbash.paramail.R
+import ru.vizbash.paramail.background.Notifier
 import ru.vizbash.paramail.databinding.FragmentMessageListBinding
 import ru.vizbash.paramail.storage.message.MessageWithRecipients
 import ru.vizbash.paramail.ui.MainActivity
@@ -35,6 +36,7 @@ import ru.vizbash.paramail.ui.MainViewModel
 import ru.vizbash.paramail.ui.MessageComposerFragment
 import ru.vizbash.paramail.ui.SearchState
 import ru.vizbash.paramail.ui.messageview.MessageViewFragment
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MessageListFragment : Fragment() {
@@ -42,6 +44,8 @@ class MessageListFragment : Fragment() {
         const val ARG_ACCOUNT_ID = "account_id"
         const val ARG_FOLDER_NAME = "folder_name"
     }
+
+    @Inject lateinit var notifier: Notifier
 
     private var _ui: FragmentMessageListBinding? = null
     private val ui get() = _ui!!
@@ -72,6 +76,10 @@ class MessageListFragment : Fragment() {
 
         if (accountId == null) {
             findNavController().navigate(R.id.action_messageListFragment_to_gettingStartedFragment)
+        } else {
+            lifecycleScope.launch {
+                notifier.cancelForAccount(accountId!!)
+            }
         }
     }
 
@@ -90,11 +98,7 @@ class MessageListFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        if (folderName == null) {
-            return
-        }
-
-        (requireActivity() as MainActivity).setFolderName(folderName!!)
+        (requireActivity() as MainActivity).setFolderName(folderName)
 
         ui.composeMessageButton.setOnClickListener { onComposeClicked() }
 
@@ -133,7 +137,7 @@ class MessageListFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            model.initialize(accountId!!, folderName!!)
+            model.initialize(accountId!!, folderName)
 
             launch {
                 model.messages.collectLatest {
@@ -223,6 +227,5 @@ class MessageListFragment : Fragment() {
             MessageComposerFragment.ARG_ACCOUNT_ID to accountId,
         )
         findNavController().navigate(R.id.action_messageListFragment_to_messageComposerFragment, args)
-
     }
 }

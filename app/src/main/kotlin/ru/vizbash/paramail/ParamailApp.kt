@@ -16,6 +16,7 @@ import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import ru.vizbash.paramail.background.InboxUpdateWorker
+import ru.vizbash.paramail.background.Notifier
 import ru.vizbash.paramail.mail.MailService
 import ru.vizbash.paramail.storage.account.AccountDao
 import ru.vizbash.paramail.storage.account.Creds
@@ -39,6 +40,7 @@ class ParamailApp : Application(), Configuration.Provider {
     @Inject lateinit var accountDao: AccountDao
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var mailService: MailService
+    @Inject lateinit var notifier: Notifier
 
     override fun onCreate() {
         super.onCreate()
@@ -76,7 +78,7 @@ class ParamailApp : Application(), Configuration.Provider {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            createNotificationChannel()
+            notifier.createNotificationChannel()
         }
 
         scheduleUpdateWork()
@@ -106,17 +108,6 @@ class ParamailApp : Application(), Configuration.Provider {
             ExistingPeriodicWorkPolicy.KEEP,
             workRequest,
         )
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            MESSAGE_CHANNEL_ID,
-            getString(R.string.message_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT,
-        )
-
-        NotificationManagerCompat.from(this).createNotificationChannel(channel)
     }
 
     suspend fun getInitialFolder(): Pair<Int, String>? {
