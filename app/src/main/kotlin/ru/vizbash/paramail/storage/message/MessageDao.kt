@@ -4,12 +4,11 @@ import androidx.paging.PagingSource
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
+private const val MESSAGE_SELECT = "SELECT * FROM messages " +
+        "WHERE account_id = :accountId AND folder_id = :folderId"
+
 @Dao
 interface MessageDao {
-    companion object {
-        private const val MESSAGE_SELECT = "SELECT * FROM messages " +
-                "WHERE account_id = :accountId AND folder_id = :folderId"
-    }
 
     @Transaction
     @Query("$MESSAGE_SELECT ORDER BY msgnum DESC")
@@ -75,6 +74,7 @@ interface MessageDao {
             "LIMIT :limit")
     suspend fun searchAddresses(pattern: String, limit: Int): List<String>
 
+    @Transaction
     suspend fun insertAddress(address: Address): Long {
         val stored = getAddress(address.address)
         return stored?.id?.toLong() ?: insertAddressUnchecked(address)

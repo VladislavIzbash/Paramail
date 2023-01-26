@@ -97,7 +97,7 @@ class MessageService(
                 isUnread = !msg.isSet(Flags.Flag.SEEN),
             ),
             from = Address(0, from.address, from.personal),
-            to = Address(0, to.address, from.personal),
+            to = Address(0, to.address, to.personal),
             cc = (msg.getRecipients(RecipientType.CC) ?: arrayOf()).map {
                 val addr = it as InternetAddress
                 Address(0, addr.address, addr.personal)
@@ -105,11 +105,7 @@ class MessageService(
         )
     }
 
-    private suspend fun downloadMessageRange(
-        folder: IMAPFolder,
-        startNum: Int,
-        endNum: Int,
-    ) {
+    private suspend fun downloadMessageRange(folder: IMAPFolder, startNum: Int, endNum: Int) {
         for (msgNum in endNum downTo startNum step FETCH_COUNT) {
             val pageStart = max(msgNum - FETCH_COUNT + 1, startNum)
 

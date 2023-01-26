@@ -21,3 +21,4 @@
 #-renamesourcefileattribute SourceFile
 
 -keep class com.sun.mail.** { *; }
+-keep class java.awt.** { *; }
